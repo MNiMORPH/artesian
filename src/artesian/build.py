@@ -167,8 +167,11 @@ def localize_wheel_urls(outdir, filenames=None):
                      for f in glob.glob(os.path.join(outdir, "*.js"))
                      + glob.glob(os.path.join(outdir, "*.html"))]
 
-    # Longest first: a wheel filename must not be matched as the tail of a
-    # longer one before that longer one gets its chance.
+    # Two independent guards against rewriting `.../extra-panel-1.9.3.whl` as
+    # `panel-1.9.3.whl` when both wheels are present: the `/` before the name
+    # anchors the match to a whole path segment, and longest-first ordering
+    # gives the longer filename its chance before the shorter one. Either alone
+    # suffices; removing both corrupts the URL (tests/test_localize.py).
     patterns = [
         (re.compile(r"https?://[^\"'\s]*?/" + re.escape(w)), w)
         for w in sorted(wheels, key=len, reverse=True)
