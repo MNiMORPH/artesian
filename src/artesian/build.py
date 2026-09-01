@@ -10,8 +10,16 @@ One external dependency remains and is worth stating plainly: the Pyodide
 runtime itself is still fetched from ``cdn.jsdelivr.net`` at load time.
 ``panel convert`` hardcodes that URL and offers no option to change it, so a
 demo built this way is *not* usable fully offline or behind a firewall that
-blocks jsdelivr. Self-hosting the runtime would mean shipping the Pyodide
-distribution (order 10² MB) next to the app; artesian does not do that today.
+blocks jsdelivr. artesian does not self-host it today.
+
+Self-hosting would buy only that offline capability, not a smaller download:
+the reader fetches the same bytes either way, and from a docs host rather
+than a CDN they may well arrive slower. The cost is smaller than it sounds --
+Pyodide fetches packages on demand rather than shipping its whole
+distribution, so the core runtime is about 11.6 MB (measured against
+v0.29.3: pyodide.js, pyodide.asm.js, pyodide.asm.wasm, python_stdlib.zip)
+plus each package used. For scale, the panel wheel self-hosted here is
+28.9 MB on its own, and is the single largest item a reader downloads.
 
 The one non-obvious step is :func:`localize_wheel_urls`. ``panel convert`` emits
 absolute ``https://cdn.holoviz.org/...`` URLs for the panel and bokeh wheels;

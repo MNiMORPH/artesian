@@ -6,7 +6,8 @@ without a pump. The model reaches the reader and runs without a server: it is
 compiled to WebAssembly and executes entirely in the browser via Pyodide, so
 a demo is a static file, and hosting one costs nothing and keeps running. (The
 Pyodide runtime is still fetched from a CDN at load time -- see
-:mod:`artesian.build` -- so "no server" means yours, not the whole network.)
+:mod:`artesian.build` -- so "no server" means no server of yours, not no
+network.)
 
 Two pieces, used together or separately:
 

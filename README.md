@@ -161,10 +161,15 @@ fails in a way that is easy to misread.
   but `pyodide.js` is fetched from `cdn.jsdelivr.net` at load time.
   `panel convert` hardcodes that URL and offers no option to change it, so a
   demo is *not* usable fully offline or behind a firewall blocking jsdelivr.
-  Self-hosting it would mean shipping the Pyodide distribution (order 10² MB)
-  alongside the app.
+  Self-hosting it would buy that offline capability and nothing else: the
+  reader fetches the same bytes either way, and a docs host is usually slower
+  than a CDN.
 - **Readers wait 10–30 s on first load** while the browser downloads the Python
-  runtime. It is smooth afterwards, and worth saying so on the page.
+  runtime. It is smooth afterwards, and worth saying so on the page. Measured
+  for GRLP's demo, that first load is about 63 MB: 11.6 MB of Pyodide core,
+  16.6 MB of numpy/scipy/networkx, and 35 MB of self-hosted wheels – of which
+  `panel` alone is 28.9 MB, the single largest item and the only real lever on
+  load time.
 - **Much of the value here is workarounds to current upstream behaviour** – the
   403, the silent `panel convert` failure. That is the argument for a shared
   package (fix once), but it also means this needs to track panel, bokeh, and
