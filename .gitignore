@@ -1,0 +1,131 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+# Build-time copies of the tutorial notebooks (canonical copies live in examples/)
+docs/tutorials/
+# myst-nb execution cache + executed-notebook artifacts
+docs/.jupyter_cache/
+docs/jupyter_execute/
+# Interactive demo compiled by `panel convert` at build time (app + wheels);
+# canonical source is interactive_demo/grlp_panel.py
+docs/_static/interactive/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# dotenv
+.env
+
+# virtualenv
+.venv
+venv/
+ENV/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+
+# vi
+*.swp
+
+# Generated example output
+netBLrise.gif
+BLrise_movie_frames/
+examples/McNab_et_al_GRL/figures/
+
+# Local literature PDFs (copyrighted; kept locally for docs work, never committed).
+# The literature notes (README.md) ARE tracked; only the PDFs are ignored.
+docs/literature/*.pdf
+
+# Standalone interactive demo build artifacts (JupyterLite / Pyodide)
+interactive_demo/pypi/
+interactive_demo/_output/
+interactive_demo/.jupyterlite.doit.db
+interactive_demo/jupyter_lite_config.json
+
+# artesian build output (compiled WASM apps + self-hosted wheels)
+_artesian_build/
+*.whl

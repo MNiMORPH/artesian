@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "artesian"
+dynamic = ["version"]
+description = "Compile a Python model into a self-contained WebAssembly demo that runs in the reader's browser with no server"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+authors = [{ name = "Andrew D. Wickert", email = "awickert@umn.edu" }]
+keywords = [
+  "pyodide",
+  "webassembly",
+  "panel",
+  "sphinx",
+  "interactive",
+  "numerical modeling",
+  "science communication",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Framework :: Sphinx :: Extension",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Documentation :: Sphinx",
+]
+dependencies = [
+  "panel>=1.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+docs = ["sphinx>=7"]
+
+[project.scripts]
+artesian = "artesian.cli:main"
+
+# src-layout: the single ``artesian`` package lives under src/.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["artesian*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "artesian._version.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "network: marks tests that reach PyPI or run a full pyodide build (deselect with '-m \"not network\"')",
+]
+
+[project.urls]
+Repository = "https://github.com/MNiMORPH/artesian"
+Issues = "https://github.com/MNiMORPH/artesian/issues"
