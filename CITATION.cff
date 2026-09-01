@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "artesian: browser-based demos of Python models, with no server"
+abstract: >-
+  Compiles a Python model and a Panel interface into a self-contained
+  WebAssembly application that runs entirely in the reader's browser via
+  Pyodide, as a Sphinx extension, a library, or a command-line tool.
+type: software
+authors:
+  - family-names: Wickert
+    given-names: Andrew D.
+    orcid: "https://orcid.org/0000-0002-0745-2075"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/MNiMORPH/artesian"
+keywords:
+  - pyodide
+  - webassembly
+  - science communication
+  - numerical modeling
