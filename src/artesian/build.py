@@ -128,9 +128,24 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         cmd += ["--requirements"] + reqs
     _run(cmd, cwd=outdir)
 
+    # `panel convert` reports some failures on stdout and still exits 0, so a
+    # zero return code is not evidence that anything was written. Check for the
+    # page itself.
     stem = os.path.splitext(os.path.basename(app))[0]
+    page = os.path.join(outdir, "%s.html" % stem)
+    if not os.path.exists(page):
+        raise RuntimeError(
+            "panel convert did not produce %s.\n"
+            "It runs your app in *this* environment to discover what it "
+            "serves, so every module the app imports -- including your model "
+            "-- must be importable here, not merely shipped as a wheel for "
+            "the browser. Install the model into the building environment "
+            "(e.g. `pip install -e %s`) and rebuild.\n"
+            "Check the panel convert output above for the failing import."
+            % (page, packages[0] if packages else "."))
+
     localize_wheel_urls(outdir, ("%s.js" % stem, "%s.html" % stem))
-    return os.path.join(outdir, "%s.html" % stem)
+    return page
 
 
 def localize_wheel_urls(outdir, filenames=None):
