@@ -116,7 +116,17 @@ artesian_apps = [
 ]
 ```
 
-and embed the result in a page:
+Make sure `outdir` is somewhere Sphinx actually publishes, or the demo is built
+into your source tree and never copied into `_build`:
+
+```python
+html_static_path = ["_static"]
+```
+
+`artesian` warns if it is not, since the failure is otherwise silent at build
+time and a 404 at run time.
+
+Then embed the result in a page:
 
 ```html
 <iframe src="_static/interactive/grlp_panel.html"

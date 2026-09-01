@@ -20,6 +20,8 @@ All notable changes to this project are documented here, following
   boilerplate every live demo rewrites.
 - `examples/hillslope.py`: a complete demo of a model unrelated to the one
   artesian was extracted from.
+- A warning when the output directory is not covered by `html_static_path`,
+  which would otherwise build successfully and 404 at run time.
 
 ### Notes
 
