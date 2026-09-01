@@ -25,7 +25,7 @@ time a page embeds it::
 Building a WASM app takes tens of seconds and hits PyPI. Set
 ``artesian_skip_build = True`` (or the environment variable
 ``ARTESIAN_SKIP_BUILD=1``) to reuse whatever is already in the output
-directory — useful for fast local prose edits, and for offline builds.
+directory – useful for fast local prose edits, and for offline builds.
 """
 
 import os

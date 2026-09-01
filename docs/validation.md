@@ -51,7 +51,7 @@ now handled in the library rather than left as folklore.
 
 2. **The model must be importable in the *building* environment.**
    `panel convert` executes the app to discover what it serves, so shipping the
-   model as a wheel for the browser is not sufficient — it must also be
+   model as a wheel for the browser is not sufficient – it must also be
    installed where the build runs. This is why GRLP's demo builds on Read the
    Docs, which `pip install .`s the package before Sphinx runs. The error
    message for finding 1 states this, since the underlying failure is opaque.

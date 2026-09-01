@@ -1,9 +1,9 @@
 """
-A hillslope relaxing under linear diffusion — the smallest useful artesian demo.
+A hillslope relaxing under linear diffusion – the smallest useful artesian demo.
 
 Deliberately not GRLP: a self-contained model in a few lines of numpy, so the
 example shows the shape of a demo rather than the details of any one model.
-Everything artesian needs is here — a Panel app ending in ``.servable()``, and
+Everything artesian needs is here – a Panel app ending in ``.servable()``, and
 nothing imported that Pyodide cannot supply.
 
 Build and view it with::
@@ -42,7 +42,7 @@ DT = 0.25 * DX ** 2 / D_MAX                # 5 yr
 # The slowest diffusive mode takes L²/π²D ≈ 20-100 kyr to relax, which is
 # far too many steps to draw one per frame. Advancing 60 per frame brings the
 # profile to 95% of its steady crest in 205 frames at D = 0.05 and 1023 at
-# D = 0.01 — roughly 7 to 34 s at 30 fps, measured, which is long enough to
+# D = 0.01 – roughly 7 to 34 s at 30 fps, measured, which is long enough to
 # watch and short enough to sit through.
 STEPS_PER_FRAME = 60
 
@@ -108,7 +108,7 @@ pn.Column(
         "### A hillslope finding its steady form\n"
         "Press **▶** and drag the sliders while it runs. More **uplift** grows "
         "the ridge; more **diffusivity** rounds it off faster. The dashed line "
-        "is the steady parabola for the current settings — the profile chases "
+        "is the steady parabola for the current settings – the profile chases "
         "it, and catches it when erosion balances uplift."),
     pn.Row(animator(step), reset_button(do_reset, name="Flatten")),
     D, U, fig,

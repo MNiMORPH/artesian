@@ -65,7 +65,7 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         Directory to write the compiled app and its wheels into. Created if
         needed. For a Sphinx project this is typically ``_static/<something>``.
     packages : sequence of path, optional
-        Local source trees to build wheels from and ship with the app — your
+        Local source trees to build wheels from and ship with the app – your
         model. Each is passed to ``pip wheel --no-deps``, so the wheel always
         matches the working tree rather than the last PyPI release.
     requirements : sequence of str, optional
