@@ -1,11 +1,17 @@
 """
 Compile a Panel app into a self-contained WebAssembly page.
 
-The output directory ends up holding everything the demo needs — the generated
-HTML/JS, a freshly built wheel of your model, and self-hosted copies of the
-``panel``/``bokeh`` wheels — all referenced by *relative* URLs. That matters:
-the demo then works wherever the page is served, offline, behind a firewall, or
-from a ``file://`` path, with no run-time CDN dependency at all.
+The output directory holds the generated HTML/JS, a freshly built wheel of your
+model, and self-hosted copies of the ``panel``/``bokeh`` wheels, all referenced
+by *relative* URLs. The page therefore works wherever it is served, without
+depending on a wheel CDN staying up or serving a 200.
+
+One external dependency remains and is worth stating plainly: the Pyodide
+runtime itself is still fetched from ``cdn.jsdelivr.net`` at load time.
+``panel convert`` hardcodes that URL and offers no option to change it, so a
+demo built this way is *not* usable fully offline or behind a firewall that
+blocks jsdelivr. Self-hosting the runtime would mean shipping the Pyodide
+distribution (order 10² MB) next to the app; artesian does not do that today.
 
 The one non-obvious step is :func:`localize_wheel_urls`. ``panel convert`` emits
 absolute ``https://cdn.holoviz.org/...`` URLs for the panel and bokeh wheels;
