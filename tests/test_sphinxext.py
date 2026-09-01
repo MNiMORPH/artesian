@@ -105,3 +105,60 @@ def test_setup_registers_config_values_and_hook():
     assert registered == {"artesian_apps": [], "artesian_skip_build": False}
     assert connected == ["builder-inited"]
     assert meta["parallel_read_safe"]
+
+
+def _capture_warnings(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(sphinxext.logger, "warning",
+                        lambda msg, *a: warnings.append(msg % a))
+    monkeypatch.setattr(sphinxext, "build_app",
+                        lambda app, outdir, **kw: os.path.join(outdir, "x.html"))
+    return warnings
+
+
+def test_warns_when_outdir_is_not_in_html_static_path(tmp_path, monkeypatch):
+    """Output outside html_static_path never reaches _build; the page 404s at
+    run time with nothing having failed at build time."""
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "_static/demo"}],
+                     html_static_path=[])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert len(warnings) == 1
+    assert "404" in warnings[0]
+    assert "'_static'" in warnings[0]        # names the entry to add
+
+
+def test_no_warning_when_covered_by_html_static_path(tmp_path, monkeypatch):
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "_static/demo"}],
+                     html_static_path=["_static"])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert warnings == []
+
+
+def test_no_warning_when_outdir_is_exactly_a_static_path(tmp_path, monkeypatch):
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "_static"}],
+                     html_static_path=["_static"])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert warnings == []
+
+
+def test_similarly_named_static_dir_does_not_count_as_covering(tmp_path,
+                                                              monkeypatch):
+    """'_static_extra/demo' must not be considered covered by '_static'."""
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(
+        artesian_apps=[{"app": "a.py", "outdir": "_static_extra/demo"}],
+        html_static_path=["_static"])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert len(warnings) == 1
+
+
+def test_no_warning_for_outdir_outside_the_docs_tree(tmp_path, monkeypatch):
+    """Somewhere else entirely is the user's business, not ours to police."""
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "../elsewhere"}],
+                     html_static_path=["_static"])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert warnings == []

@@ -49,6 +49,32 @@ _APP_KEYS = {
 }
 
 
+def _warn_if_not_published(config, confdir, outdir):
+    """Warn when Sphinx will not copy ``outdir`` into the built site.
+
+    Sphinx only copies directories listed in ``html_static_path``. A demo built
+    outside them lands in the source tree, never reaches ``_build``, and the
+    embedding page 404s at run time with nothing having failed at build time.
+    """
+    static = getattr(config, "html_static_path", None) or []
+    try:
+        relative = os.path.relpath(outdir, confdir)
+    except ValueError:                     # different drive on Windows
+        return
+    if relative.startswith(os.pardir):
+        return                             # outside the docs tree; user's call
+    covered = any(
+        relative == entry or relative.startswith(entry.rstrip("/") + os.sep)
+        for entry in (os.path.normpath(e) for e in static))
+    if not covered:
+        top = relative.split(os.sep)[0]
+        logger.warning(
+            "artesian: %s is not covered by html_static_path %s, so Sphinx "
+            "will not copy the demo into the built site and the page "
+            "embedding it will 404. Add %r to html_static_path in conf.py.",
+            relative, static, top)
+
+
 def _resolve(confdir, path):
     """Resolve a conf.py-relative path the way Sphinx resolves its own."""
     if os.path.isabs(path):
@@ -93,6 +119,7 @@ def build_apps(app, config=None):
             mode=opts["mode"],
             index=opts["index"],
         )
+        _warn_if_not_published(config, confdir, outdir)
         logger.info("artesian: built %s", os.path.relpath(html, confdir))
 
 
