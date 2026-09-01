@@ -9,7 +9,7 @@ type: software
 authors:
   - family-names: Wickert
     given-names: Andrew D.
-    orcid: "https://orcid.org/0000-0002-0745-2075"
+    orcid: "https://orcid.org/0000-0002-9545-3365"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/MNiMORPH/artesian"
 keywords:
