@@ -21,7 +21,7 @@ import panel as pn
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
 
-from artesian.live import animator, reset_button
+from artesian.live import animator, reset_button, responsive
 
 pn.extension()
 
@@ -89,9 +89,14 @@ def do_reset():
 profile = ColumnDataSource(data={"x": x, "z": sim["z"]})
 steady = ColumnDataSource(data={"x": x, "z": _steady()})
 
+# Sized at 680x360, then made to fill whatever container it is embedded in
+# while keeping those proportions -- so the hillslope's steepness looks the
+# same to every reader. See artesian.live.responsive for why holding the
+# ratio matters more than simply filling the width.
 fig = figure(height=360, width=680, title="t = 0 kyr",
              x_axis_label="Distance across hillslope [m]",
              y_axis_label="Elevation [m]")
+responsive(fig)
 fig.line("x", "z", source=steady, line_width=1, line_dash="dashed",
          color="gray", legend_label="steady form")
 fig.line("x", "z", source=profile, line_width=3, legend_label="hillslope")
@@ -112,4 +117,5 @@ pn.Column(
         "it, and catches it when erosion balances uplift."),
     pn.Row(animator(step), reset_button(do_reset, name="Flatten")),
     D, U, fig,
+    sizing_mode="stretch_width",   # or the figure has nothing to fill
 ).servable(title="Hillslope diffusion")
