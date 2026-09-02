@@ -34,33 +34,12 @@ def test_raises_when_convert_produces_no_page(tmp_path, monkeypatch):
     assert "importable here" in message      # names the actual cause
 
 
-def test_stale_wheels_are_cleared_first(tmp_path, monkeypatch):
-    """A wheel left by an earlier build must not shadow the fresh one."""
-    out = tmp_path / "out"
-    out.mkdir()
-    stale = out / "grlp-1.0.0-py3-none-any.whl"
-    stale.write_bytes(b"")
-    app = tmp_path / "a.py"
-    app.write_text("")
-    monkeypatch.setattr(build_mod, "_run", lambda *a, **k: None)
-
-    with pytest.raises(RuntimeError):          # no page produced; fine
-        build_app(str(app), str(out), self_host=())
-    assert not stale.exists()
-
-
-def test_stale_wheels_kept_when_clean_wheels_false(tmp_path, monkeypatch):
-    out = tmp_path / "out"
-    out.mkdir()
-    stale = out / "grlp-1.0.0-py3-none-any.whl"
-    stale.write_bytes(b"")
-    app = tmp_path / "a.py"
-    app.write_text("")
-    monkeypatch.setattr(build_mod, "_run", lambda *a, **k: None)
-
-    with pytest.raises(RuntimeError):
-        build_app(str(app), str(out), self_host=(), clean_wheels=False)
-    assert stale.exists()
+# The two tests that used to sit here asserted the old contract -- that a build
+# deletes every wheel in the output directory. That contract was the bug: it
+# destroyed the wheels of other apps sharing the directory. Replaced by
+# test_a_build_keeps_another_apps_wheel and
+# test_superseded_version_of_our_own_wheel_is_removed below, which pin down
+# both halves of the behaviour that replaced it.
 
 
 def test_local_wheels_precede_named_requirements(tmp_path, monkeypatch):
@@ -73,9 +52,11 @@ def test_local_wheels_precede_named_requirements(tmp_path, monkeypatch):
     def fake_run(cmd, cwd=None):
         commands.append(cmd)
         if "wheel" in cmd:
-            os.makedirs(out, exist_ok=True)
-            (out / "mymodel-0.1-py3-none-any.whl").write_bytes(b"")
+            target = cmd[cmd.index("-w") + 1]
+            open(os.path.join(target, "mymodel-0.1-py3-none-any.whl"),
+                 "wb").close()
         if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
             (out / "a.html").write_text("")
 
     monkeypatch.setattr(build_mod, "_run", fake_run)
@@ -103,3 +84,102 @@ def test_convert_runs_from_the_output_directory(tmp_path, monkeypatch):
     monkeypatch.setattr(build_mod, "_run", fake_run)
     build_app(str(app), str(out), self_host=())
     assert seen["cwd"] == str(out)
+
+
+# -- shared output directories -------------------------------------------
+# Several demos commonly share one output directory so the 35 MB of panel and
+# bokeh wheels is paid once rather than per demo. A build must therefore touch
+# only its own distributions.
+
+def _fake_build(monkeypatch, out, produces):
+    """Stub _run so `pip wheel`/`pip download` write the named wheels."""
+    def fake_run(cmd, cwd=None):
+        if "wheel" in cmd or "download" in cmd:
+            target = cmd[cmd.index("-w") + 1] if "-w" in cmd \
+                else cmd[cmd.index("-d") + 1]
+            for name in produces.get("wheel" if "wheel" in cmd else "download",
+                                     []):
+                open(os.path.join(target, name), "wb").close()
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            open(os.path.join(out, "a.html"), "w").close()
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+
+def test_a_build_keeps_another_apps_wheel(tmp_path, monkeypatch):
+    """The bug this guards: building exercise B deleted exercise A's model
+    wheel, so A 404'd in the browser with nothing having failed at build."""
+    out = tmp_path / "out"
+    out.mkdir()
+    neighbour = out / "othermodel-1.0-py3-none-any.whl"
+    neighbour.write_bytes(b"")
+    app = tmp_path / "a.py"
+    app.write_text("")
+
+    _fake_build(monkeypatch, str(out),
+                {"wheel": ["mymodel-0.1-py3-none-any.whl"]})
+    build_app(str(app), str(out), packages=[str(tmp_path)], self_host=())
+
+    assert neighbour.exists(), "another app's wheel was deleted"
+    assert (out / "mymodel-0.1-py3-none-any.whl").exists()
+
+
+def test_self_hosted_wheels_do_not_clobber_neighbours(tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    neighbour = out / "othermodel-1.0-py3-none-any.whl"
+    neighbour.write_bytes(b"")
+    app = tmp_path / "a.py"
+    app.write_text("")
+
+    _fake_build(monkeypatch, str(out),
+                {"download": ["panel-1.9.4-py3-none-any.whl"]})
+    build_app(str(app), str(out), self_host=("panel",))
+
+    assert neighbour.exists()
+    assert (out / "panel-1.9.4-py3-none-any.whl").exists()
+
+
+def test_superseded_version_of_our_own_wheel_is_removed(tmp_path, monkeypatch):
+    """Two versions of one distribution in the directory would be ambiguous."""
+    out = tmp_path / "out"
+    out.mkdir()
+    stale = out / "mymodel-0.0.9-py3-none-any.whl"
+    stale.write_bytes(b"")
+    app = tmp_path / "a.py"
+    app.write_text("")
+
+    _fake_build(monkeypatch, str(out),
+                {"wheel": ["mymodel-0.1-py3-none-any.whl"]})
+    build_app(str(app), str(out), packages=[str(tmp_path)], self_host=())
+
+    assert not stale.exists(), "stale version of our own distribution kept"
+    assert (out / "mymodel-0.1-py3-none-any.whl").exists()
+
+
+def test_clean_wheels_false_keeps_even_superseded_versions(tmp_path,
+                                                          monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    stale = out / "mymodel-0.0.9-py3-none-any.whl"
+    stale.write_bytes(b"")
+    app = tmp_path / "a.py"
+    app.write_text("")
+
+    _fake_build(monkeypatch, str(out),
+                {"wheel": ["mymodel-0.1-py3-none-any.whl"]})
+    build_app(str(app), str(out), packages=[str(tmp_path)], self_host=(),
+              clean_wheels=False)
+
+    assert stale.exists()
+
+
+def test_wheel_distribution_normalizes_the_name():
+    from artesian.build import wheel_distribution
+    # PEP 427 escapes the distribution, so a hyphenated name only ever
+    # reaches us underscored -- "scikit-learn-1.0-...whl" cannot occur.
+    assert wheel_distribution("scikit_learn-1.0-py3-none-any.whl") \
+        == "scikit-learn"
+    assert wheel_distribution("/a/b/GRLP-2.1.0-py3-none-any.whl") == "grlp"
+    assert wheel_distribution("artesian-0.1.0.dev0-py3-none-any.whl") \
+        == "artesian"
