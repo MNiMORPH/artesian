@@ -34,6 +34,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 __all__ = ["build_app", "localize_wheel_urls"]
 
@@ -50,6 +51,30 @@ DEFAULT_SELF_HOST = ("panel", "bokeh")
 def _run(cmd, cwd=None):
     """Run a subprocess, raising with its output attached if it fails."""
     subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def wheel_distribution(filename):
+    """The PEP 503-normalized distribution name from a wheel filename.
+
+    A wheel is ``{distribution}-{version}-...-.whl`` and a distribution name
+    cannot itself contain a hyphen, so everything before the first one is the
+    name. Normalizing lets ``scikit_learn-...`` and ``scikit-learn`` compare
+    equal, which is how they are the same package.
+    """
+    base = os.path.basename(filename).split("-")[0]
+    return re.sub(r"[-_.]+", "-", base).lower()
+
+
+def _prune_superseded(outdir, keep):
+    """Drop wheels of the same distribution as ``keep`` but a different file.
+
+    Removes a stale *version* of what we just wrote, and nothing else -- other
+    apps sharing this directory keep their own wheels.
+    """
+    target = wheel_distribution(keep)
+    for old in glob.glob(os.path.join(outdir, "*.whl")):
+        if os.path.basename(old) != keep and wheel_distribution(old) == target:
+            os.remove(old)
 
 
 def _installed_version(package):
@@ -90,8 +115,11 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         Also emit ``index.html`` (``panel convert --index``) when several apps
         share ``outdir``.
     clean_wheels : bool, optional
-        Remove pre-existing ``*.whl`` from ``outdir`` first, so a stale wheel
-        from an earlier build cannot shadow the fresh one.
+        Remove *superseded versions of this build's own distributions* from
+        ``outdir``, so a stale wheel cannot shadow the fresh one. Wheels
+        belonging to other apps sharing the directory are never touched: that
+        sharing is what keeps a multi-demo site to one 35 MB copy of panel and
+        bokeh instead of one per demo.
 
     Returns
     -------
@@ -106,30 +134,51 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
     outdir = os.path.abspath(outdir)
     os.makedirs(outdir, exist_ok=True)
 
-    if clean_wheels:
-        for old in glob.glob(os.path.join(outdir, "*.whl")):
-            os.remove(old)
-
-    # Build a wheel of each local package. --no-deps keeps this to the package
-    # itself: its dependencies are declared through `requirements` instead,
+    # Build each local package's wheel in a scratch directory and move it in,
+    # rather than building into outdir and diffing the listing. Several apps
+    # commonly share one output directory (a course site, a docs site with
+    # more than one demo) so that the 35 MB of panel and bokeh wheels is paid
+    # once; this way a build only ever touches its own distributions and
+    # leaves its neighbours' wheels alone. --no-deps keeps each wheel to the
+    # package itself: its dependencies are declared through `requirements`,
     # because in the browser they come from Pyodide, not from pip.
     local_wheels = []
     for pkg in packages:
-        before = set(glob.glob(os.path.join(outdir, "*.whl")))
-        _run([sys.executable, "-m", "pip", "wheel", os.path.abspath(pkg),
-              "--no-deps", "-w", outdir])
-        new = sorted(set(glob.glob(os.path.join(outdir, "*.whl"))) - before)
-        if not new:
-            raise RuntimeError("pip wheel produced no wheel for %s" % pkg)
-        local_wheels.extend(os.path.basename(w) for w in new)
+        scratch = tempfile.mkdtemp(prefix="artesian-wheel-")
+        try:
+            _run([sys.executable, "-m", "pip", "wheel", os.path.abspath(pkg),
+                  "--no-deps", "-w", scratch])
+            built = sorted(glob.glob(os.path.join(scratch, "*.whl")))
+            if not built:
+                raise RuntimeError("pip wheel produced no wheel for %s" % pkg)
+            for src in built:
+                name = os.path.basename(src)
+                if clean_wheels:
+                    _prune_superseded(outdir, name)
+                shutil.move(src, os.path.join(outdir, name))
+                local_wheels.append(name)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
     # Self-host the runtime wheels at the versions this environment has, so the
     # page never depends on a CDN being up (or on it serving a 200).
     for name in self_host:
         pinned = _installed_version(name)
         spec = "%s==%s" % (name, pinned) if pinned else name
-        _run([sys.executable, "-m", "pip", "download", spec, "--no-deps",
-              "-d", outdir])
+        scratch = tempfile.mkdtemp(prefix="artesian-host-")
+        try:
+            _run([sys.executable, "-m", "pip", "download", spec, "--no-deps",
+                  "-d", scratch])
+            for src in sorted(glob.glob(os.path.join(scratch, "*.whl"))):
+                basename = os.path.basename(src)
+                if clean_wheels:
+                    _prune_superseded(outdir, basename)
+                dest = os.path.join(outdir, basename)
+                if os.path.exists(dest):
+                    os.remove(dest)
+                shutil.move(src, dest)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
     # `panel convert` resolves bare wheel filenames relative to its working
     # directory, so run it from outdir and pass the wheels by basename.
