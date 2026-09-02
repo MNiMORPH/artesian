@@ -87,6 +87,32 @@ pn.Column(
 
 See [`examples/hillslope.py`](examples/hillslope.py) for a complete one.
 
+### Make the figure fill its container, without changing its shape
+
+A demo gets embedded in containers you do not control – a documentation page, a
+course page, a projected slide, a phone – so a figure fixed at some pixel width
+is wrong nearly everywhere. `artesian.live.responsive` handles it:
+
+```python
+fig = figure(height=380, width=680, ...)   # the proportions you want
+responsive(fig)
+
+pn.Column(..., fig, sizing_mode="stretch_width").servable()
+```
+
+The trap worth knowing about: the obvious choice, bokeh's `stretch_width`, fills
+the width but *pins the height*, so the aspect ratio drifts with the window. A
+680×380 plot reads 1.79 as drawn, 2.89 in a 1100 px column, and 4.21 in a
+1600 px one. Wherever the meaning lives in a slope – a river's long profile, a
+hillslope, a rate through time – that is the same data looking three times
+gentler to a reader with a wider monitor.
+
+`responsive()` uses `scale_width` instead, scaling both dimensions so the
+exaggeration is identical for everyone, and bounds the result with `max_width`
+because preserving the ratio unbounded makes that figure 1342 px tall at
+2400 px. Give the enclosing `Column` `sizing_mode="stretch_width"` too, or the
+figure has nothing to fill.
+
 ## Build it
 
 From the command line:

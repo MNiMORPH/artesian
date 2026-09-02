@@ -16,8 +16,10 @@ All notable changes to this project are documented here, following
 - `artesian` command line: `build` (with `--serve`) and `check`.
 - `check_requirements()`: report whether each requirement can install in the
   browser, before a build is attempted.
-- `artesian.live`: `animator()` and `reset_button()`, the only Panel
-  boilerplate every live demo rewrites.
+- `artesian.live`: `animator()`, `reset_button()` and `responsive()` – the
+  Panel boilerplate every live demo rewrites. `responsive()` makes a figure
+  fill its container while holding its aspect ratio, so the vertical
+  exaggeration a reader sees does not depend on their window width.
 - `examples/hillslope.py`: a complete demo of a model unrelated to the one
   artesian was extracted from.
 - A warning when the output directory is not covered by `html_static_path`,
