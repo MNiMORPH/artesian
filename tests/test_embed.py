@@ -247,3 +247,23 @@ def test_the_observer_follows_the_frames_current_document():
     # fit() must re-check, not just the one-off setup path
     body = embed.EMBED_JS.split("function fit()")[1]
     assert body.lstrip().startswith("{\n      attach();"), body[:120]
+
+
+def test_the_design_width_is_taken_from_the_element_before_the_document():
+    """
+    Ordering, and it is the whole point of this function.
+
+    Reading the width out of the compiled page keeps the number in one place,
+    but it needs the frame's DOCUMENT to be readable while the page lays
+    itself out, and it is not: an iframe starts on a blank document, and on
+    WebKit -- every browser on an iPad -- that is what a page script sees. No
+    meta, no design width, and the demo is never scaled.
+
+    Both GeomorphOnline exercises worked on an iPad while each page hardcoded
+    its design width, and broke in the commit that replaced that with the meta
+    tag. So the attribute, which is on the element and readable at once, wins.
+    """
+    body = embed.EMBED_JS.split("function design_width")[1].split("\n  }")[0]
+    attr = body.index("data-design-width")
+    meta = body.index("meta[name=")
+    assert attr < meta, "the meta tag must be the FALLBACK, not the first look"
