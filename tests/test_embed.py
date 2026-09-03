@@ -209,3 +209,23 @@ def test_unscaled_pages_is_quiet_when_all_are_recorded(tmp_path):
     _page(tmp_path, "a.html", width=900)
     _page(tmp_path, "b.html", width=700)
     assert unscaled_pages(str(tmp_path)) == []
+
+
+def test_the_frame_is_re_measured_after_the_app_settles():
+    """
+    ``adjusting`` suppresses the ResizeObserver callbacks the script's own
+    writes cause, and it cannot tell those from a real one arriving in the
+    same instant. A render landing in that window is dropped, and the frame
+    keeps the height it had while the app was still laying itself out -- blank
+    space under the demo, permanently, on a machine fast enough to hit it.
+
+    Reported from a desktop; not reproducible in a headless run, which is slow
+    enough that the real render always lands outside the window. So the
+    defence is that the measurement is repeated rather than relied on once.
+    """
+    assert "RETRIES" in embed.EMBED_JS
+    assert "setTimeout(fit, RETRIES[i])" in embed.EMBED_JS
+    later = re.search(r"var RETRIES = \[([^\]]*)\]", embed.EMBED_JS)
+    assert later, "RETRIES list not found"
+    delays = [int(x) for x in later.group(1).split(",")]
+    assert delays == sorted(delays) and delays[-1] >= 10000, delays
