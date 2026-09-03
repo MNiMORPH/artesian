@@ -170,7 +170,7 @@ That is the whole embed.
 **Both files, and the stylesheet in the head.** They act at different times.
 The script cannot size the frame until the frame's *document* has loaded, and
 a demo that pulls tens of megabytes of Pyodide leaves that window open for
-many seconds — whatever the frame looks like meanwhile is the reader's first
+many seconds – whatever the frame looks like meanwhile is the reader's first
 impression. With no stylesheet that is the browser's default iframe, about
 300 px wide, stretched to the `height` you gave it: a narrow, tall box with
 the demo squeezed into a column and blank space beneath. It reads as "stuck
