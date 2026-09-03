@@ -160,14 +160,14 @@ Then embed the result in a page. Every build also writes an
 <script src="_static/interactive/artesian-embed.js"></script>
 ```
 
-That is the whole embed. The script sizes the frame to its content — no fixed
-height can work, since the plot's height follows the reader's window — and
+That is the whole embed. The script sizes the frame to its content – no fixed
+height can work, since the plot's height follows the reader's window – and
 above the app's design width it *scales* the demo rather than stretching it.
 
 ### Do not write `width="100%"` on the frame
 
 It is the obvious thing and it is wrong, invisibly. Every browser on an iPad is
-WebKit underneath — Firefox and Chrome there are skins on Safari's engine — and
+WebKit underneath – Firefox and Chrome there are skins on Safari's engine – and
 **WebKit sizes an iframe to its content** rather than honouring a percentage
 width. Against a Panel app in `stretch_width` that is a feedback loop with no
 fixed point: the app is as wide as the frame, the frame is as wide as the app,
@@ -187,7 +187,7 @@ the controls end up small and fiddly beside the model. Above the design width
 the frame is zoomed instead, so everything enlarges together, the way zooming a
 PDF does.
 
-Declare it once, in the app, as a module-level constant — the app needs the
+Declare it once, in the app, as a module-level constant – the app needs the
 number anyway, to cap its own layout:
 
 ```python
