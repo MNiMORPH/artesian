@@ -80,6 +80,10 @@ EMBED_CSS = """\
 iframe[{attribute}] {
   border: 0;
   display: block;
+  /* The frame is sized to its content and so has nothing to scroll. Where it
+     can, a touch drag pans the demo off the edge of its own frame with no
+     obvious way back -- an iPad needs only a pixel or two of rounding. */
+  overflow: hidden;
   /* NOT width: 100%. WebKit sizes an iframe to its content rather than
      honouring a percentage, and a stretch-to-fit app then grows with it off
      the side of the page. min-width is honoured where width is not. */
@@ -257,6 +261,13 @@ EMBED_TEMPLATE = """\
 
     frame.style.border = frame.style.border || 'none';
     frame.style.display = 'block';
+    // The frame is sized to its content, so it has nothing to scroll -- and if
+    // it can scroll, a touch drag pans the demo off the edge of its own frame
+    // and there is no obvious way to get it back. Reported on an iPad, where a
+    // rounding difference of a pixel or two is enough to make the inner
+    // document scrollable. Set in the page's HTML as well, since some engines
+    // only honour it before the frame loads.
+    frame.setAttribute('scrolling', 'no');
     frame.addEventListener('load', watch);
     window.addEventListener('resize', fit);
     var doc = document_of(frame);

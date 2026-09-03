@@ -267,3 +267,18 @@ def test_the_design_width_is_taken_from_the_element_before_the_document():
     attr = body.index("data-design-width")
     meta = body.index("meta[name=")
     assert attr < meta, "the meta tag must be the FALLBACK, not the first look"
+
+
+def test_the_frame_is_not_scrollable():
+    """
+    The frame is sized to its content, so it has nothing to scroll. Where it
+    can, a touch drag pans the demo off the edge of its own frame and there is
+    no obvious way to get it back -- reported on an iPad, where a rounding
+    difference of a pixel or two is enough to allow it.
+
+    Belt and braces: the attribute, which some engines only honour before the
+    frame loads, and the CSS.
+    """
+    assert "setAttribute('scrolling', 'no')" in embed.EMBED_JS
+    rules = re.sub(r"/\*.*?\*/", "", embed.EMBED_CSS, flags=re.S)
+    assert "overflow: hidden" in rules

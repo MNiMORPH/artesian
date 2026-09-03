@@ -161,7 +161,8 @@ demo in that directory:
 <link rel="stylesheet" href="_static/interactive/artesian-embed.css">
 
 <!-- in the body -->
-<iframe src="_static/interactive/grlp_panel.html" data-artesian height="400"></iframe>
+<iframe src="_static/interactive/grlp_panel.html" data-artesian
+        data-design-width="700" height="400" scrolling="no"></iframe>
 <script src="_static/interactive/artesian-embed.js"></script>
 ```
 
@@ -218,7 +219,8 @@ page. `--design-width` overrides.
 **Put it on the frame as well**, as `data-design-width`:
 
 ```html
-<iframe src="..." data-artesian data-design-width="900" height="400"></iframe>
+<iframe src="..." data-artesian data-design-width="900"
+        height="400" scrolling="no"></iframe>
 ```
 
 Two places, deliberately, and the attribute wins. Reading the width out of the
@@ -232,6 +234,11 @@ hardcoded its design width, and broke in the commit that replaced that with the
 meta tag.
 
 With neither, the demo is fitted to the page but never scaled.
+
+`scrolling="no"` matters too. The frame is sized to its content, so it has
+nothing to scroll – and where it *can* scroll, a touch drag pans the demo off
+the edge of its own frame with no obvious way back. On an iPad a pixel or two
+of rounding is enough to allow it.
 
 A build takes tens of seconds and reaches PyPI, so set
 `artesian_skip_build = True` (or `ARTESIAN_SKIP_BUILD=1`) to reuse existing
