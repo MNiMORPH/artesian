@@ -25,6 +25,13 @@ from artesian.live import animator, reset_button, responsive
 
 pn.extension()
 
+#: The width this app is laid out for. `artesian build` reads this constant
+#: out of the source and records it in the compiled page, so the embedding
+#: page never repeats the number and the two cannot drift apart. Above it, the
+#: demo is scaled rather than stretched -- otherwise the plot grows without
+#: limit while the text and slider handles keep their size.
+DESIGN_WIDTH = 700
+
 NX = 101                        # nodes across the hillslope
 LENGTH = 100.                   # hillslope width [m]
 DX = LENGTH / (NX - 1)
@@ -117,5 +124,8 @@ pn.Column(
         "it, and catches it when erosion balances uplift."),
     pn.Row(animator(step), reset_button(do_reset, name="Flatten")),
     D, U, fig,
-    sizing_mode="stretch_width",   # or the figure has nothing to fill
+    # Capped as well as stretchy. An app that is only ever "as wide as you
+    # give me", inside a frame that is "as wide as your content", is a loop
+    # with no fixed point -- which is exactly what WebKit does with an iframe.
+    sizing_mode="stretch_width", max_width=DESIGN_WIDTH,
 ).servable(title="Hillslope diffusion")
