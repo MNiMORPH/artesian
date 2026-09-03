@@ -115,3 +115,16 @@ def test_a_page_with_no_head_is_left_alone(tmp_path):
     page.write_text("<p>not a document</p>")
     assert embed.inject_design_width(str(page), 900) is False
     assert page.read_text() == "<p>not a document</p>"
+
+
+def test_the_available_width_excludes_the_parents_padding():
+    """
+    ``clientWidth`` includes padding; the frame lives in the content box. A
+    demo scaled to the padded width overflows its column by exactly the
+    padding -- invisible in a container that has none, which is how it
+    survived two deployments and turned up on a test page with 16 px of it.
+    """
+    assert "paddingLeft" in embed.EMBED_JS
+    assert "paddingRight" in embed.EMBED_JS
+    body = embed.EMBED_JS.split("function available_width")[1].split("}")[0]
+    assert "clientWidth - pad" in embed.EMBED_JS, body

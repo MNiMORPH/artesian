@@ -92,8 +92,18 @@ EMBED_TEMPLATE = """\
     // the design width, give a factor of 1, and oscillate. The parent is not
     // zoomed, so its width is the honest one.
     var host = frame.parentElement;
-    if (host && host.clientWidth) { return host.clientWidth; }
-    return frame.getBoundingClientRect().width;
+    if (!host || !host.clientWidth) {
+      return frame.getBoundingClientRect().width;
+    }
+    // clientWidth INCLUDES the parent's padding, and the frame lives in the
+    // content box. Scaling to the padded width overflows the column by
+    // exactly the padding -- invisible in a container that has none, which is
+    // why this survived two deployments and only showed up on a test page
+    // with 16 px of it.
+    var style = window.getComputedStyle(host);
+    var pad = (parseFloat(style.paddingLeft) || 0)
+            + (parseFloat(style.paddingRight) || 0);
+    return Math.max(host.clientWidth - pad, 0);
   }
 
   function manage(frame) {
