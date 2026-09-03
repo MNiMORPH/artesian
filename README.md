@@ -213,9 +213,25 @@ pn.Column(..., sizing_mode="stretch_width", max_width=DESIGN_WIDTH).servable()
 ```
 
 `artesian build` reads it out of the source and records it in the compiled
-page, and the embed script reads it back from there. The embedding page never
-repeats the number, so the two cannot drift. `--design-width` overrides, and
-with neither the demo is fitted to the page but never scaled.
+page. `--design-width` overrides.
+
+**Put it on the frame as well**, as `data-design-width`:
+
+```html
+<iframe src="..." data-artesian data-design-width="900" height="400"></iframe>
+```
+
+Two places, deliberately, and the attribute wins. Reading the width out of the
+compiled page is tidier, and it does not work on its own: it needs the frame's
+*document* to be readable while the embedding page lays itself out, and an
+iframe starts on a BLANK document. On WebKit – every browser on an iPad – that
+is what a page script sees. No meta tag, no design width, and the demo is never
+scaled: it sits at its own layout width inside a wider frame with blank space
+around it. Both GeomorphOnline exercises worked on an iPad while each page
+hardcoded its design width, and broke in the commit that replaced that with the
+meta tag.
+
+With neither, the demo is fitted to the page but never scaled.
 
 A build takes tens of seconds and reaches PyPI, so set
 `artesian_skip_build = True` (or `ARTESIAN_SKIP_BUILD=1`) to reuse existing

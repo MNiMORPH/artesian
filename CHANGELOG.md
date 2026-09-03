@@ -18,7 +18,11 @@ All notable changes to this project are documented here, following
   Pyodide leaves that window open for many seconds.
 - `build_app(design_width=...)` and `--design-width`. The width an app is laid
   out for is read from a module-level `DESIGN_WIDTH` in the app itself and
-  recorded in the compiled page, so the embedding page never repeats it.
+  recorded in the compiled page. The embedding page should also carry it as
+  `data-design-width` on the frame, and that takes precedence: the compiled
+  page cannot be read while the embedding page lays itself out, since an
+  iframe starts on a blank document and on WebKit that is what a page script
+  sees.
 
 ### Fixed
 
