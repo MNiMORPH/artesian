@@ -229,3 +229,21 @@ def test_the_frame_is_re_measured_after_the_app_settles():
     assert later, "RETRIES list not found"
     delays = [int(x) for x in later.group(1).split(",")]
     assert delays == sorted(delays) and delays[-1] >= 10000, delays
+
+
+def test_the_observer_follows_the_frames_current_document():
+    """
+    An iframe does not start empty. It starts with a BLANK document whose
+    readyState is already "complete", so a script that looks once attaches its
+    ResizeObserver to a body that is about to be discarded, and reads the
+    design width from a document with no meta tag in it -- leaving the demo
+    unscaled at whatever height the blank document had.
+
+    Reported from Firefox on an iPad, which is WebKit; no desktop engine shows
+    it, because there the real document arrives before the script looks.
+    """
+    assert "observed" in embed.EMBED_JS
+    assert "doc === observed" in embed.EMBED_JS
+    # fit() must re-check, not just the one-off setup path
+    body = embed.EMBED_JS.split("function fit()")[1]
+    assert body.lstrip().startswith("{\n      attach();"), body[:120]
