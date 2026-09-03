@@ -36,18 +36,43 @@ def test_the_template_is_fully_substituted():
     assert embed.DESIGN_WIDTH_META in embed.EMBED_JS
 
 
-def test_write_embed_script_writes_the_script(tmp_path):
-    path = embed.write_embed_script(str(tmp_path))
-    assert path.endswith(embed.EMBED_FILENAME)
+def test_write_embed_script_writes_the_script_and_the_stylesheet(tmp_path):
+    script, css = embed.write_embed_script(str(tmp_path))
+    assert script.endswith(embed.EMBED_FILENAME)
+    assert css.endswith(embed.EMBED_CSS_FILENAME)
     assert (tmp_path / embed.EMBED_FILENAME).read_text() == embed.EMBED_JS
+    assert (tmp_path / embed.EMBED_CSS_FILENAME).read_text() == embed.EMBED_CSS
 
 
-def test_write_embed_script_overwrites_an_older_one(tmp_path):
-    """It is shared by every demo in the directory, so rewriting it on each
-    build is what lets one rebuild update them all."""
+def test_write_embed_script_overwrites_older_ones(tmp_path):
+    """They are shared by every demo in the directory, so rewriting them on
+    each build is what lets one rebuild update them all."""
     (tmp_path / embed.EMBED_FILENAME).write_text("stale")
+    (tmp_path / embed.EMBED_CSS_FILENAME).write_text("stale")
     embed.write_embed_script(str(tmp_path))
     assert (tmp_path / embed.EMBED_FILENAME).read_text() == embed.EMBED_JS
+    assert (tmp_path / embed.EMBED_CSS_FILENAME).read_text() == embed.EMBED_CSS
+
+
+def test_the_frame_is_laid_out_before_any_script_runs():
+    """
+    The regression this stylesheet exists for. The script cannot size a frame
+    whose document has not loaded, and a demo pulling tens of megabytes of
+    Pyodide leaves that window open for many seconds. Shipped with the sizing
+    left entirely to the script, the reader got the browser's default iframe --
+    about 300 px wide -- stretched to the page's fallback height: a narrow,
+    tall box with blank space beneath, reported as "stuck loading".
+
+    So the static rules have to be in CSS, and they have to be the WebKit-safe
+    form, not width: 100%.
+    """
+    # Strip comments first: the file EXPLAINS why width: 100% is wrong, and a
+    # naive search finds that sentence and calls it a violation.
+    rules = re.sub(r"/\*.*?\*/", "", embed.EMBED_CSS, flags=re.S)
+    assert "min-width: 100%" in rules
+    assert "width: 1px" in rules
+    assert "width: 100%" not in rules.replace("min-width: 100%", "")
+    assert "iframe[%s]" % embed.EMBED_ATTRIBUTE in rules
 
 
 # ------------------------------------------------------- the design width

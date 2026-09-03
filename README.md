@@ -153,14 +153,30 @@ html_static_path = ["_static"]
 time and a 404 at run time.
 
 Then embed the result in a page. Every build also writes an
-`artesian-embed.js` beside the app, shared by every demo in that directory:
+`artesian-embed.css` and an `artesian-embed.js` beside the app, shared by every
+demo in that directory:
 
 ```html
-<iframe src="_static/interactive/grlp_panel.html" data-artesian></iframe>
+<!-- in <head> -->
+<link rel="stylesheet" href="_static/interactive/artesian-embed.css">
+
+<!-- in the body -->
+<iframe src="_static/interactive/grlp_panel.html" data-artesian height="400"></iframe>
 <script src="_static/interactive/artesian-embed.js"></script>
 ```
 
-That is the whole embed. The script sizes the frame to its content – no fixed
+That is the whole embed.
+
+**Both files, and the stylesheet in the head.** They act at different times.
+The script cannot size the frame until the frame's *document* has loaded, and
+a demo that pulls tens of megabytes of Pyodide leaves that window open for
+many seconds — whatever the frame looks like meanwhile is the reader's first
+impression. With no stylesheet that is the browser's default iframe, about
+300 px wide, stretched to the `height` you gave it: a narrow, tall box with
+the demo squeezed into a column and blank space beneath. It reads as "stuck
+loading", and it was shipped that way and reported as exactly that. Give
+`height` a value near the demo's real height, too; it is what the reader sees
+until the script measures the real one. The script sizes the frame to its content – no fixed
 height can work, since the plot's height follows the reader's window – and
 above the app's design width it *scales* the demo rather than stretching it.
 

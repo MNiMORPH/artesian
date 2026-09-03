@@ -8,10 +8,14 @@ All notable changes to this project are documented here, following
 
 ### Added
 
-- `artesian.embed`: every build now writes an `artesian-embed.js` beside the
-  compiled app, shared by every demo in that directory. A page embeds a demo
-  with an `<iframe data-artesian>` and a script tag, and inherits later fixes
-  instead of carrying a copy of the sizing logic.
+- `artesian.embed`: every build now writes an `artesian-embed.css` and an
+  `artesian-embed.js` beside the compiled app, shared by every demo in that
+  directory. A page embeds a demo with a stylesheet link, an
+  `<iframe data-artesian>` and a script tag, and inherits later fixes instead
+  of carrying a copy of the sizing logic. The stylesheet is separate because
+  it has to apply before any script can run: the script cannot size a frame
+  whose document has not loaded, and a demo pulling tens of megabytes of
+  Pyodide leaves that window open for many seconds.
 - `build_app(design_width=...)` and `--design-width`. The width an app is laid
   out for is read from a module-level `DESIGN_WIDTH` in the app itself and
   recorded in the compiled page, so the embedding page never repeats it.
