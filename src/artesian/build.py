@@ -36,6 +36,9 @@ import subprocess
 import sys
 import tempfile
 
+from .embed import (declared_design_width, inject_design_width,
+                    write_embed_script)
+
 __all__ = ["build_app", "localize_wheel_urls"]
 
 #: ``panel convert`` targets we accept. ``pyodide-worker`` runs the model on a
@@ -87,7 +90,8 @@ def _installed_version(package):
 
 
 def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
-              self_host=DEFAULT_SELF_HOST, index=False, clean_wheels=True):
+              self_host=DEFAULT_SELF_HOST, index=False, clean_wheels=True,
+              design_width=None):
     """Compile ``app`` into a standalone WebAssembly page in ``outdir``.
 
     Parameters
@@ -120,6 +124,13 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         belonging to other apps sharing the directory are never touched: that
         sharing is what keeps a multi-demo site to one 35 MB copy of panel and
         bokeh instead of one per demo.
+    design_width : int, optional
+        The width the app is laid out for, in CSS pixels. Recorded in the
+        compiled page so the embedding script scales the demo above that width
+        instead of stretching it. Defaults to a module-level ``DESIGN_WIDTH``
+        in the app if it declares one, which is the way to keep the number in
+        one place -- see :func:`artesian.embed.declared_design_width`. Without
+        either, the demo is fitted to the page but never scaled.
 
     Returns
     -------
@@ -208,6 +219,15 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
             % (page, packages[0] if packages else "."))
 
     localize_wheel_urls(outdir, ("%s.js" % stem, "%s.html" % stem))
+
+    # The page-side half of the demo: how the embedding page sizes and scales
+    # the frame. Emitted rather than left to each page to copy, because it
+    # carries fixes no one would rediscover -- see artesian/embed.py.
+    write_embed_script(outdir)
+    width = design_width if design_width is not None \
+        else declared_design_width(app)
+    if width:
+        inject_design_width(page, width)
     return page
 
 

@@ -35,6 +35,7 @@ def _cmd_build(args):
         mode=args.mode,
         self_host=args.self_host,
         index=args.index,
+        design_width=args.design_width,
     )
     print("built %s" % html)
     if not args.serve:
@@ -97,6 +98,11 @@ def build_parser():
                      help="packages to serve alongside the app rather than "
                           "from a CDN (default: %s)"
                           % " ".join(DEFAULT_SELF_HOST))
+    bld.add_argument("--design-width", type=int, default=None,
+                     help="width in CSS pixels the app is laid out for; the "
+                          "embedding page scales the demo above it rather "
+                          "than stretching it. Defaults to a DESIGN_WIDTH "
+                          "declared in the app.")
     bld.add_argument("--index", action="store_true",
                      help="also emit index.html (for several apps in one dir)")
     bld.add_argument("--serve", action="store_true",
