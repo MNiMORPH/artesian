@@ -8,6 +8,23 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- `artesian.embed`: every build now writes an `artesian-embed.js` beside the
+  compiled app, shared by every demo in that directory. A page embeds a demo
+  with an `<iframe data-artesian>` and a script tag, and inherits later fixes
+  instead of carrying a copy of the sizing logic.
+- `build_app(design_width=...)` and `--design-width`. The width an app is laid
+  out for is read from a module-level `DESIGN_WIDTH` in the app itself and
+  recorded in the compiled page, so the embedding page never repeats it.
+
+### Fixed
+
+- Demos ran off the side of the page on an iPad. Every browser there is WebKit
+  underneath, and WebKit sizes an iframe to its content rather than honouring
+  `width: 100%`; against an app in `stretch_width` that is a loop with no fixed
+  point. The emitted script uses `width: 1px` with `min-width: 100%`, which
+  WebKit honours. No desktop engine shows the problem, so it reached two live
+  exercises first.
+
 - `build_app()`: wheel a local model, self-host the panel/bokeh wheels, run
   `panel convert`, and localize the wheel URLs, in one call.
 - `artesian.sphinxext`: a Sphinx extension driven by an `artesian_apps` list,

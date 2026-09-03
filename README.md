@@ -152,12 +152,54 @@ html_static_path = ["_static"]
 `artesian` warns if it is not, since the failure is otherwise silent at build
 time and a 404 at run time.
 
-Then embed the result in a page:
+Then embed the result in a page. Every build also writes an
+`artesian-embed.js` beside the app, shared by every demo in that directory:
 
 ```html
-<iframe src="_static/interactive/grlp_panel.html"
-        width="100%" height="760" style="border: none;"></iframe>
+<iframe src="_static/interactive/grlp_panel.html" data-artesian></iframe>
+<script src="_static/interactive/artesian-embed.js"></script>
 ```
+
+That is the whole embed. The script sizes the frame to its content — no fixed
+height can work, since the plot's height follows the reader's window — and
+above the app's design width it *scales* the demo rather than stretching it.
+
+### Do not write `width="100%"` on the frame
+
+It is the obvious thing and it is wrong, invisibly. Every browser on an iPad is
+WebKit underneath — Firefox and Chrome there are skins on Safari's engine — and
+**WebKit sizes an iframe to its content** rather than honouring a percentage
+width. Against a Panel app in `stretch_width` that is a feedback loop with no
+fixed point: the app is as wide as the frame, the frame is as wide as the app,
+and the demo runs off the side of the page. `width: 1px` with
+`min-width: 100%` says "the width available, and no more", which WebKit does
+honour.
+
+No desktop engine shows this, which is why `artesian-embed.js` exists rather
+than a snippet in this README for everyone to copy. Two live exercises shipped
+with the bug before a reader on an iPad found it.
+
+### The design width lives in the app
+
+Above some width, enlarging a demo by *stretching* it goes wrong: the plot
+grows without limit while the 16 px text and 18 px slider handles stay put, and
+the controls end up small and fiddly beside the model. Above the design width
+the frame is zoomed instead, so everything enlarges together, the way zooming a
+PDF does.
+
+Declare it once, in the app, as a module-level constant — the app needs the
+number anyway, to cap its own layout:
+
+```python
+DESIGN_WIDTH = 900
+
+pn.Column(..., sizing_mode="stretch_width", max_width=DESIGN_WIDTH).servable()
+```
+
+`artesian build` reads it out of the source and records it in the compiled
+page, and the embed script reads it back from there. The embedding page never
+repeats the number, so the two cannot drift. `--design-width` overrides, and
+with neither the demo is fitted to the page but never scaled.
 
 A build takes tens of seconds and reaches PyPI, so set
 `artesian_skip_build = True` (or `ARTESIAN_SKIP_BUILD=1`) to reuse existing
