@@ -34,6 +34,7 @@ every fix made here afterwards.
 """
 
 import ast
+import glob
 import os
 import re
 
@@ -273,3 +274,45 @@ def inject_design_width(page, width):
     with open(page, "w", encoding="utf-8") as fh:
         fh.write(text)
     return True
+
+
+def page_design_width(page):
+    """The design width recorded in a compiled ``page``, or 0 if it has none.
+
+    The inverse of :func:`inject_design_width`, and the same question the
+    embedding script asks at run time.
+    """
+    try:
+        with open(page, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return 0
+    found = re.search(
+        r'<meta\s+name="%s"\s+content="([0-9.]+)"' % re.escape(DESIGN_WIDTH_META),
+        text)
+    return float(found.group(1)) if found else 0
+
+
+def unscaled_pages(outdir, exclude=()):
+    """Compiled pages in ``outdir`` that record no design width.
+
+    Such a page is still served and still fits its frame, but the embedding
+    script has nothing to scale it by, so its text and controls keep their
+    size while its plot grows. Nothing about it looks broken, which is why it
+    is worth reporting: the failure is a demo that is merely worse, on a page
+    that loads perfectly.
+
+    Apps built before artesian recorded the width at all land here, which is
+    the common case -- a directory shared by several demos, only some of them
+    rebuilt since.
+    """
+    skip = {os.path.abspath(p) for p in exclude}
+    stale = []
+    for page in sorted(glob.glob(os.path.join(outdir, "*.html"))):
+        if os.path.abspath(page) in skip:
+            continue
+        if os.path.basename(page) == "index.html":
+            continue
+        if not page_design_width(page):
+            stale.append(os.path.basename(page))
+    return stale

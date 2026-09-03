@@ -35,9 +35,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 
 from .embed import (declared_design_width, inject_design_width,
-                    write_embed_script)
+                    unscaled_pages, write_embed_script)
 
 __all__ = ["build_app", "localize_wheel_urls"]
 
@@ -228,6 +229,29 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         else declared_design_width(app)
     if width:
         inject_design_width(page, width)
+    else:
+        # Worth saying out loud, because nothing about the result looks wrong.
+        # The demo builds, loads, and fits its frame; it simply never scales,
+        # so its text and controls keep their size while the plot grows and on
+        # a wide screen they end up small beside it.
+        warnings.warn(
+            "%s declares no DESIGN_WIDTH and none was given, so this demo will "
+            "be fitted to the page but never scaled: its text and controls "
+            "keep their size while the plot grows. Add `DESIGN_WIDTH = <px>` "
+            "at module level in the app, or pass design_width=."
+            % os.path.basename(app), stacklevel=2)
+
+    # Demos share an output directory, so one built before artesian recorded
+    # the width -- or never rebuilt since -- sits there silently unscaled
+    # beside newer ones. Only rebuilding it fixes that, and nothing else will
+    # ever point it out.
+    stale = unscaled_pages(outdir, exclude=[page])
+    if stale:
+        warnings.warn(
+            "%s in %s record no design width, so they are fitted but never "
+            "scaled. They predate this being recorded, or have not been "
+            "rebuilt since. Rebuild each one to bring it in line."
+            % (", ".join(stale), outdir), stacklevel=2)
     return page
 
 

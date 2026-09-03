@@ -42,6 +42,13 @@ All notable changes to this project are documented here, following
 - A warning when the output directory is not covered by `html_static_path`,
   which would otherwise build successfully and 404 at run time.
 
+- `build_app` warns when a demo will never scale: when the app declares no
+  `DESIGN_WIDTH`, and when another compiled page in the same output directory
+  records none. Such a page still builds, loads and fits its frame, so nothing
+  reveals it otherwise.
+- `artesian.embed.page_design_width` and `artesian.embed.unscaled_pages` expose
+  that check.
+
 ### Notes
 
 - Extracted from the build hook in [GRLP](https://github.com/MNiMORPH/GRLP)'s

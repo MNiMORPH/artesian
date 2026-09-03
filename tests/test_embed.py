@@ -128,3 +128,59 @@ def test_the_available_width_excludes_the_parents_padding():
     assert "paddingRight" in embed.EMBED_JS
     body = embed.EMBED_JS.split("function available_width")[1].split("}")[0]
     assert "clientWidth - pad" in embed.EMBED_JS, body
+
+
+# -- detecting demos that will never scale --------------------------------
+
+def _page(tmp_path, name, width=None):
+    head = '<meta name="artesian-design-width" content="%d">' % width \
+        if width else ""
+    (tmp_path / name).write_text("<html><head>%s</head><body></body></html>"
+                                 % head)
+    return tmp_path / name
+
+
+def test_page_design_width_reads_back_what_was_injected(tmp_path):
+    from artesian.embed import inject_design_width, page_design_width
+    page = _page(tmp_path, "a.html")
+    inject_design_width(str(page), 900)
+    assert page_design_width(str(page)) == 900
+
+
+def test_page_design_width_is_zero_when_absent(tmp_path):
+    from artesian.embed import page_design_width
+    assert page_design_width(str(_page(tmp_path, "a.html"))) == 0
+
+
+def test_page_design_width_of_a_missing_file_is_zero(tmp_path):
+    from artesian.embed import page_design_width
+    assert page_design_width(str(tmp_path / "nope.html")) == 0
+
+
+def test_unscaled_pages_finds_the_one_without_a_width(tmp_path):
+    """The regression this exists for: a shared directory where one demo was
+    rebuilt after the width started being recorded and another was not. The
+    stale one still loads and still fits its frame -- it just never scales."""
+    from artesian.embed import unscaled_pages
+    _page(tmp_path, "corestone_panel.html", width=900)
+    _page(tmp_path, "grlp_panel.html")
+    assert unscaled_pages(str(tmp_path)) == ["grlp_panel.html"]
+
+
+def test_unscaled_pages_excludes_the_page_just_built(tmp_path):
+    from artesian.embed import unscaled_pages
+    fresh = _page(tmp_path, "fresh.html")
+    assert unscaled_pages(str(tmp_path), exclude=[str(fresh)]) == []
+
+
+def test_unscaled_pages_ignores_the_generated_index(tmp_path):
+    from artesian.embed import unscaled_pages
+    _page(tmp_path, "index.html")
+    assert unscaled_pages(str(tmp_path)) == []
+
+
+def test_unscaled_pages_is_quiet_when_all_are_recorded(tmp_path):
+    from artesian.embed import unscaled_pages
+    _page(tmp_path, "a.html", width=900)
+    _page(tmp_path, "b.html", width=700)
+    assert unscaled_pages(str(tmp_path)) == []

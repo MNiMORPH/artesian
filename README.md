@@ -223,6 +223,28 @@ python:
 If you miss this, `artesian` raises and says so; `panel convert` on its own
 fails in a way that is easy to misread.
 
+### A demo that never scales fails quietly
+
+Scaling depends on the app declaring a design width, which `build_app` records
+in the compiled page:
+
+```python
+DESIGN_WIDTH = 900     # module level, in your app
+```
+
+Without it the demo still builds, still loads, and still fits its frame – it
+simply never scales, so its text and controls keep their size while the plot
+grows. Nothing looks broken. artesian therefore **warns** in two cases:
+
+- the app declares no `DESIGN_WIDTH` and none was passed;
+- another compiled page in the same output directory records none, which means
+  it predates the width being recorded, or has not been rebuilt since.
+
+The second matters because demos share an output directory. Adding a new
+exercise beside an older one leaves the older one unscaled, and only rebuilding
+it fixes that. This is not hypothetical: it is how the GRLP demo on
+GeomorphOnline silently lost its scaling when a second exercise was added.
+
 ## Known limitations
 
 - **The Pyodide runtime still comes from a CDN.** The wheels are self-hosted,
