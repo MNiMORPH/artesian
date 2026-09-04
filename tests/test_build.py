@@ -355,3 +355,40 @@ def test_no_warning_when_the_wheel_does_not_grow(tmp_path, monkeypatch):
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         build_app(str(app), str(out), self_host=("panel",))
+
+
+def test_no_re_inflation_warning_when_the_build_strips(tmp_path, monkeypatch):
+    """The false alarm this guards: the wheel arrives full and is shrunk
+    afterwards, so comparing before the strip warns on exactly the builds
+    that passed the flag."""
+    out = tmp_path / "out"
+    out.mkdir()
+    # Big enough to stand in for a real stripped wheel: the point is that what
+    # this build LEAVES is smaller than what was here, even though what it
+    # DOWNLOADS is larger.
+    (out / "panel-1.9.4-py3-none-any.whl").write_bytes(b"x" * 50_000)
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+
+    def fake_run(cmd, cwd=None):
+        if "download" in cmd:
+            target = cmd[cmd.index("-d") + 1]
+            import zipfile
+            with zipfile.ZipFile(os.path.join(
+                    target, "panel-1.9.4-py3-none-any.whl"), "w",
+                    zipfile.ZIP_DEFLATED) as zf:
+                # Incompressible on purpose. Repetitive filler deflates to
+                # almost nothing, which would make the downloaded wheel
+                # smaller than the placeholder and the test inert: it must
+                # arrive LARGER than what is there and end up SMALLER.
+                zf.writestr("panel/dist/big.js", os.urandom(200_000))
+                zf.writestr("panel-1.9.4.dist-info/METADATA", "Name: panel")
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            (out / "a.html").write_text('src="https://cdn.bokeh.org/x.js"')
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_app(str(app), str(out), self_host=("panel",),
+                  strip_vendored=True)
