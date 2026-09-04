@@ -303,7 +303,15 @@ the Pyodide runtime comes from a CDN shared with every other Pyodide site the
 reader has visited, so self-hosting it would guarantee a cache miss rather than
 avoid one.
 
-`--strip-wheels` removes what no browser executes from the self-hosted wheels –
+`--strip-vendored` goes further and removes the JavaScript bundles the wheels
+*vendor*. These dominate – 96% of `panel`'s wheel, 78% of `bokeh`'s, against
+0.6 and 0.7 MB of Python – and a compiled demo never loads them: it takes its
+front end from `cdn.bokeh.org` and `cdn.holoviz.org`. **36.9 MB of self-hosted
+payload becomes 11.5.** That premise is checked against the built app, and the
+build fails rather than shipping a demo whose JavaScript has been removed.
+
+`--strip-wheels` is the conservative subset: it removes what no browser
+executes from the self-hosted wheels –
 source maps, the TypeScript the shipped bundles were compiled from, and a
 package's own test suite. Measured at **9.4 MB off `panel`'s 30.3 MB**, taking a
 demo's self-hosted payload from 36.9 to 27.5 MB. `bokeh` has nothing matching

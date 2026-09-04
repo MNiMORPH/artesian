@@ -64,6 +64,17 @@ All notable changes to this project are documented here, following
   Off by default; each stripped wheel records the change in its own
   `.dist-info`.
 
+- `animator()`'s tick is a coroutine that yields to the event loop every
+  frame. Panel's periodic loop only yields when a frame finishes inside its
+  period, so an overrunning frame starved the loop completely and the demo's
+  controls stopped responding until a frame came in under budget.
+- `--strip-vendored` / `strip_vendored=`: also remove the JavaScript bundles
+  the wheels vendor, which a compiled demo loads from a CDN and never from
+  there. 36.9 MB of self-hosted payload becomes 11.5. The premise is checked
+  against the built app and the build fails if it does not hold.
+- A build that would overwrite a stripped wheel with a larger one of the same
+  name now says so, rather than silently undoing the saving.
+
 ### Notes
 
 - Extracted from the build hook in [GRLP](https://github.com/MNiMORPH/GRLP)'s
