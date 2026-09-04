@@ -216,7 +216,21 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
                 if clean_wheels:
                     _prune_superseded(outdir, basename)
                 dest = os.path.join(outdir, basename)
+                # A plain build overwrites a stripped wheel with the full one
+                # under the same name, and nothing else would ever mention it:
+                # same filename, same directory, 21 MB heavier, and the next
+                # reader pays for it. Off-by-default is right -- a stripped
+                # wheel is not what PyPI published -- but silent is not.
                 if os.path.exists(dest):
+                    was = os.path.getsize(dest)
+                    now = os.path.getsize(src)
+                    if now > was:
+                        warnings.warn(
+                            "%s in %s is %.2f MB and this build writes "
+                            "%.2f MB, undoing an earlier --strip-vendored. "
+                            "Re-run with --strip-vendored to keep it stripped."
+                            % (basename, outdir, was / 1e6, now / 1e6),
+                            stacklevel=2)
                     os.remove(dest)
                 shutil.move(src, dest)
                 # Stripped here rather than after the loop, so only wheels

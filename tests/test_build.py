@@ -307,3 +307,51 @@ def test_strip_vendored_is_content_when_the_front_end_is_on_a_cdn(tmp_path,
     monkeypatch.setattr(build_mod, "_run", fake_run)
 
     build_app(str(app), str(out), self_host=(), strip_vendored=True)
+
+
+def test_warns_when_a_build_re_inflates_a_stripped_wheel(tmp_path, monkeypatch):
+    """Same filename, same directory, 21 MB heavier, and nothing else would
+    say so. A downstream rebuild without the flag undoes the payload work and
+    the next reader pays for it."""
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "panel-1.9.4-py3-none-any.whl").write_bytes(b"x" * 100)  # stripped
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+
+    def fake_run(cmd, cwd=None):
+        if "download" in cmd:
+            target = cmd[cmd.index("-d") + 1]
+            with open(os.path.join(target,
+                                   "panel-1.9.4-py3-none-any.whl"), "wb") as fh:
+                fh.write(b"x" * 10_000)                            # full wheel
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            (out / "a.html").write_text("")
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+    with pytest.warns(UserWarning, match="undoing an earlier"):
+        build_app(str(app), str(out), self_host=("panel",))
+
+
+def test_no_warning_when_the_wheel_does_not_grow(tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "panel-1.9.4-py3-none-any.whl").write_bytes(b"x" * 10_000)
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+
+    def fake_run(cmd, cwd=None):
+        if "download" in cmd:
+            target = cmd[cmd.index("-d") + 1]
+            with open(os.path.join(target,
+                                   "panel-1.9.4-py3-none-any.whl"), "wb") as fh:
+                fh.write(b"x" * 10_000)
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            (out / "a.html").write_text("")
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_app(str(app), str(out), self_host=("panel",))
