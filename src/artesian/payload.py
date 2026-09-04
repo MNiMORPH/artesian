@@ -148,6 +148,14 @@ def strip_wheel(path, rules=STRIP_RULES):
             with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED,
                                  compresslevel=9) as new:
                 for name, _ in kept:
+                    # A wheel can be stripped again -- conservatively first,
+                    # then including the bundles. Carrying the earlier manifest
+                    # through would leave two entries of the same name in the
+                    # archive, which is legal, ambiguous, and warned about by
+                    # the standard library. The one written below describes
+                    # everything now missing.
+                    if name.endswith("/" + STRIP_MANIFEST):
+                        continue
                     new.writestr(zf.getinfo(name), zf.read(name))
                 if dist_info:
                     new.writestr("%s/%s" % (dist_info, STRIP_MANIFEST),

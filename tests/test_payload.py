@@ -186,3 +186,24 @@ def test_the_embed_script_is_not_mistaken_for_the_app(tmp_path):
     from artesian.payload import wheel_internal_references
     (tmp_path / "artesian-embed.js").write_text('"static/js/whatever.js"')
     assert wheel_internal_references(str(tmp_path)) == []
+
+
+def test_stripping_twice_leaves_one_manifest(tmp_path):
+    """A wheel can be stripped conservatively and then again including the
+    bundles. Two entries of the same name in a zip is legal, ambiguous, and
+    warned about by the standard library."""
+    from artesian.payload import VENDORED_RULES
+    w = _wheel(tmp_path, "panel-1.0-py3-none-any.whl", {
+        "panel/dist/a.js.map": "m" * 5000,
+        "panel/dist/a.min.js": "j" * 9000,
+        "panel-1.0.dist-info/METADATA": "Name: panel",
+    })
+    strip_wheel(str(w))                       # conservative
+    strip_wheel(str(w), VENDORED_RULES)       # then the bundles
+
+    with zipfile.ZipFile(w) as zf:
+        # namelist(), not the de-duplicated _members(): a duplicate entry is
+        # exactly what is being guarded against, and a set would hide it.
+        names = [n for n in zf.namelist() if n.endswith(STRIP_MANIFEST)]
+        assert len(names) == 1, "duplicate manifest entries in the archive"
+        assert "vendored JS bundles" in zf.read(names[0]).decode()
