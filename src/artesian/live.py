@@ -25,6 +25,9 @@ Typical use::
     pn.Column(pn.Row(run, reset), slider, fig).servable()
 """
 
+import asyncio
+import inspect
+
 import panel as pn
 
 __all__ = ["animator", "reset_button", "responsive",
@@ -56,10 +59,48 @@ def animator(step, period=DEFAULT_PERIOD, label=PLAY_LABEL,
     as ``toggle.callback`` if you need to change the period later.
     """
     toggle = pn.widgets.Toggle(name=label, value=False, **kwargs)
-    # Panel hands the periodic callback no arguments; accept and drop any, so
-    # a `step(event)` written for a widget watcher also works here.
-    ticker = pn.state.add_periodic_callback(lambda *a: step(), period=period,
-                                            start=False)
+
+    async def _tick(*args):
+        # Panel hands the periodic callback no arguments; accept and drop any,
+        # so a `step(event)` written for a widget watcher also works here.
+        result = step()
+        if inspect.isawaitable(result):
+            await result
+        # Hand the event loop back, every frame. This is the whole reason the
+        # callback is a coroutine rather than the plain function it used to be.
+        #
+        # Panel's PeriodicCallback._async_repeat is
+        #
+        #     while True:
+        #         start = time.monotonic()
+        #         await func()
+        #         timeout = period - (time.monotonic() - start)
+        #         if timeout > 0:
+        #             await asyncio.sleep(timeout)
+        #
+        # and `await func()` on a coroutine is not itself a suspension point.
+        # So when a frame overruns the period the sleep is skipped and the loop
+        # spins without ever returning to the event loop. In pyodide-worker
+        # mode the worker's onmessage -- which applies the widget patch -- is a
+        # JS task and can then never run: the controls are not slow, they are
+        # disconnected, for as long as no frame comes in under the period.
+        # Because frame cost is usually bimodal, that presents as controls
+        # freezing "sometimes".
+        #
+        # Measured with panel's loop shape, 40 frames at a 33 ms period,
+        # counting how often a competing task was scheduled:
+        #
+        #     frame 30 ms -> 48734 without this yield, 63175 with it
+        #     frame 34 ms ->     0 without,                40 with
+        #     frame 70 ms ->     0 without,                40 with
+        #
+        # In a browser at the worst setting measured, three interleaved A/B
+        # reps: unresponsive in all three baseline arms, 0.3-0.9 s latency and
+        # an immediate Pause in all three patched arms, with throughput
+        # unchanged. See HANDOFF-frozen-controls.md.
+        await asyncio.sleep(0)
+
+    ticker = pn.state.add_periodic_callback(_tick, period=period, start=False)
 
     def _toggled(event):
         if event.new:
