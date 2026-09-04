@@ -35,6 +35,46 @@ def test_raises_when_convert_produces_no_page(tmp_path, monkeypatch):
     assert "importable here" in message      # names the actual cause
 
 
+def test_a_refused_conversion_does_not_pass_off_a_previous_build(tmp_path,
+                                                                monkeypatch):
+    """Existence is not freshness.
+
+    Every exercise on a site shares one output directory, so rebuilding into a
+    directory that already holds a build is the normal case rather than the
+    exception. `panel convert` reports some failures on stdout and still exits
+    0; when it refuses an app, the earlier page is still sitting there. Checking
+    only that the page exists therefore reported success and shipped the OLD
+    app under the new one's name -- and because `localize_wheel_urls` runs next
+    and rewrites that page, even its timestamp looked fresh afterwards.
+
+    Observed in the wild on 2026-09-04: a hillslope demo whose app raised
+    AttributeError at import built "successfully" three times, and the stale
+    build was caught only by grepping the emitted .js for a line that had been
+    changed.
+    """
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    stale = out / "a.html"
+    stale.write_text("<html>the previous build</html>")
+    before = os.stat(str(stale)).st_mtime_ns
+
+    # A refused conversion: exits 0, writes nothing.
+    monkeypatch.setattr(build_mod, "_run", lambda *a, **k: None)
+
+    with pytest.raises(RuntimeError) as exc:
+        build_app(str(app), str(out), self_host=())
+    message = str(exc.value)
+    assert "did not happen" in message
+    assert "earlier build" in message
+
+    # And it really did leave the previous build alone rather than half-writing
+    # over it, which is what the message promises.
+    assert stale.read_text() == "<html>the previous build</html>"
+    assert os.stat(str(stale)).st_mtime_ns == before
+
+
 # The two tests that used to sit here asserted the old contract -- that a build
 # deletes every wheel in the output directory. That contract was the bug: it
 # destroyed the wheels of other apps sharing the directory. Replaced by

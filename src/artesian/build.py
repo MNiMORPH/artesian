@@ -57,6 +57,14 @@ def _run(cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
+def _mtime_ns(path):
+    """Modification time in nanoseconds, or ``None`` if the file is absent."""
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
+
+
 def wheel_distribution(filename):
     """The PEP 503-normalized distribution name from a wheel filename.
 
@@ -201,13 +209,19 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
     reqs = list(local_wheels) + list(requirements)
     if reqs:
         cmd += ["--requirements"] + reqs
+
+    # Recorded *before* the conversion, because a rebuild into a directory that
+    # already holds a previous build is the common case -- every exercise on a
+    # site shares one output directory -- and existence alone cannot tell a
+    # fresh page from a stale one.
+    stem = os.path.splitext(os.path.basename(app))[0]
+    page = os.path.join(outdir, "%s.html" % stem)
+    page_before = _mtime_ns(page)
+
     _run(cmd, cwd=outdir)
 
     # `panel convert` reports some failures on stdout and still exits 0, so a
-    # zero return code is not evidence that anything was written. Check for the
-    # page itself.
-    stem = os.path.splitext(os.path.basename(app))[0]
-    page = os.path.join(outdir, "%s.html" % stem)
+    # zero return code is not evidence that anything was written.
     if not os.path.exists(page):
         raise RuntimeError(
             "panel convert did not produce %s.\n"
@@ -217,6 +231,23 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
             "the browser. Install the model into the building environment "
             "(e.g. `pip install -e %s`) and rebuild.\n"
             "Check the panel convert output above for the failing import."
+            % (page, packages[0] if packages else "."))
+
+    # Existence is not freshness. When a previous build is already in the
+    # output directory, a refused conversion leaves that page in place and this
+    # function used to report success and return it -- shipping the old app
+    # under the new one's name, with nothing in the exit code, the printed
+    # "built ..." line, or (because `localize_wheel_urls` runs next and rewrites
+    # it) even the page's timestamp to say otherwise.
+    if page_before is not None and _mtime_ns(page) <= page_before:
+        raise RuntimeError(
+            "panel convert left %s unchanged, so the build did not happen.\n"
+            "A page from an earlier build is still there and would have been "
+            "shipped as though it were this one. panel convert reports some "
+            "failures on stdout and still exits 0, so read its output above "
+            "for the real error -- most often a module the app imports that is "
+            "not importable in *this* environment (try `pip install -e %s`).\n"
+            "Nothing in the output directory has been changed."
             % (page, packages[0] if packages else "."))
 
     localize_wheel_urls(outdir, ("%s.js" % stem, "%s.html" % stem))
