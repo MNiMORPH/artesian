@@ -284,6 +284,41 @@ exercise beside an older one leaves the older one unscaled, and only rebuilding
 it fixes that. This is not hypothetical: it is how the GRLP demo on
 GeomorphOnline silently lost its scaling when a second exercise was added.
 
+### What a reader downloads
+
+Every build ends by itemising it:
+
+```
+  What a cold reader downloads from this site:
+    panel-1.9.4-py3-none-any.whl     30.33 MB  82.3%
+    bokeh-3.9.2-py3-none-any.whl      6.41 MB  17.4%
+    grlp-2.1.0-py3-none-any.whl       0.06 MB   0.2%
+    ...
+    total, self-hosted               36.85 MB
+    plus the Pyodide v0.29.3 runtime and any package it bundles, from its CDN
+```
+
+Only the self-hosted half is counted, because it is the half you can change –
+the Pyodide runtime comes from a CDN shared with every other Pyodide site the
+reader has visited, so self-hosting it would guarantee a cache miss rather than
+avoid one.
+
+`--strip-wheels` removes what no browser executes from the self-hosted wheels –
+source maps, the TypeScript the shipped bundles were compiled from, and a
+package's own test suite. Measured at **9.4 MB off `panel`'s 30.3 MB**, taking a
+demo's self-hosted payload from 36.9 to 27.5 MB. `bokeh` has nothing matching
+and is left byte-identical.
+
+It is **off by default**, for provenance rather than safety: a stripped
+`panel-1.9.4-py3-none-any.whl` is not what `pip install panel==1.9.4` gives,
+under a filename that says it is. Each wheel it changes carries a manifest
+inside its own `.dist-info` recording what was removed, and your model's own
+wheel is never touched. If you use it, say so where your readers can find it.
+
+See [`docs/payload.md`](docs/payload.md) for the measurements, and for the
+larger question this does not answer: `panel` is 58% of the payload, and these
+demos use a vanishing fraction of it.
+
 ## Known limitations
 
 - **The Pyodide runtime still comes from a CDN.** The wheels are self-hosted,

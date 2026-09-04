@@ -162,3 +162,24 @@ def test_no_warning_for_outdir_outside_the_docs_tree(tmp_path, monkeypatch):
                      html_static_path=["_static"])
     sphinxext.build_apps(FakeApp(tmp_path), cfg)
     assert warnings == []
+
+
+def test_strip_wheels_is_passed_through_and_defaults_off(tmp_path,
+                                                         monkeypatch):
+    """Off unless asked for: a stripped wheel is not what PyPI published."""
+    seen = {}
+    monkeypatch.setattr(sphinxext, "build_app",
+                        lambda app, outdir, **kw: seen.update(kw)
+                        or os.path.join(outdir, "x.html"))
+    monkeypatch.setattr(sphinxext, "payload", lambda *a, **k: [])
+    monkeypatch.setattr(sphinxext, "format_payload", lambda *a, **k: "")
+
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py"}], html_static_path=[])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert seen["strip_wheels"] is False
+
+    seen.clear()
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "strip_wheels": True}],
+                     html_static_path=[])
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)
+    assert seen["strip_wheels"] is True

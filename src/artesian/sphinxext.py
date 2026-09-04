@@ -33,6 +33,7 @@ import os
 from sphinx.util import logging
 
 from .build import build_app
+from .payload import format_payload, payload
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ _APP_KEYS = {
     "requirements": (),
     "mode": "pyodide-worker",
     "index": False,
+    "strip_wheels": False,
 }
 
 
@@ -118,9 +120,15 @@ def build_apps(app, config=None):
             requirements=opts["requirements"],
             mode=opts["mode"],
             index=opts["index"],
+            strip_wheels=opts["strip_wheels"],
         )
         _warn_if_not_published(config, confdir, outdir)
         logger.info("artesian: built %s", os.path.relpath(html, confdir))
+        # Same reasoning as the command line: a docs build should say what it
+        # is asking a reader to download.
+        for line in format_payload(payload(outdir, src), outdir).splitlines():
+            if line.strip():
+                logger.info("artesian: %s", line.strip())
 
 
 def setup(app):

@@ -57,6 +57,13 @@ All notable changes to this project are documented here, following
 - `artesian.embed.page_design_width` and `artesian.embed.unscaled_pages` expose
   that check.
 
+- `artesian.payload`: `payload()` and `format_payload()` itemise what a cold
+  reader downloads, printed after every build and logged in a Sphinx build.
+- `--strip-wheels` / `strip_wheels=`: remove source maps, TypeScript sources
+  and test suites from the self-hosted wheels, measured at 9.4 MB off `panel`.
+  Off by default; each stripped wheel records the change in its own
+  `.dist-info`.
+
 ### Notes
 
 - Extracted from the build hook in [GRLP](https://github.com/MNiMORPH/GRLP)'s
