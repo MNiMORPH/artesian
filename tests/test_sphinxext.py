@@ -120,6 +120,7 @@ def test_warns_when_outdir_is_not_in_html_static_path(tmp_path, monkeypatch):
     """Output outside html_static_path never reaches _build; the page 404s at
     run time with nothing having failed at build time."""
     warnings = _capture_warnings(monkeypatch)
+    (tmp_path / "_static" / "demo").mkdir(parents=True)
     cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "_static/demo"}],
                      html_static_path=[])
     sphinxext.build_apps(FakeApp(tmp_path), cfg)
@@ -148,6 +149,7 @@ def test_similarly_named_static_dir_does_not_count_as_covering(tmp_path,
                                                               monkeypatch):
     """'_static_extra/demo' must not be considered covered by '_static'."""
     warnings = _capture_warnings(monkeypatch)
+    (tmp_path / "_static_extra" / "demo").mkdir(parents=True)
     cfg = FakeConfig(
         artesian_apps=[{"app": "a.py", "outdir": "_static_extra/demo"}],
         html_static_path=["_static"])
@@ -183,3 +185,15 @@ def test_strip_wheels_is_passed_through_and_defaults_off(tmp_path,
                      html_static_path=[])
     sphinxext.build_apps(FakeApp(tmp_path), cfg)
     assert seen["strip_wheels"] is True
+
+
+def test_no_warning_on_a_first_build(tmp_path, monkeypatch):
+    """Sphinx drops html_static_path entries that do not exist when it reads
+    the configuration, and artesian creates the directory afterwards. So on a
+    first build a correctly configured project looks misconfigured, and the
+    warning would tell someone to add an entry they already added."""
+    warnings = _capture_warnings(monkeypatch)
+    cfg = FakeConfig(artesian_apps=[{"app": "a.py", "outdir": "_static/demo"}],
+                     html_static_path=[])          # pruned by Sphinx
+    sphinxext.build_apps(FakeApp(tmp_path), cfg)   # _static/demo absent
+    assert warnings == []

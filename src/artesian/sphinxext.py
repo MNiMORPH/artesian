@@ -51,13 +51,23 @@ _APP_KEYS = {
 }
 
 
-def _warn_if_not_published(config, confdir, outdir):
+def _warn_if_not_published(config, confdir, outdir, existed):
     """Warn when Sphinx will not copy ``outdir`` into the built site.
 
     Sphinx only copies directories listed in ``html_static_path``. A demo built
     outside them lands in the source tree, never reaches ``_build``, and the
     embedding page 404s at run time with nothing having failed at build time.
+
+    ``existed`` says whether the output directory was there before this build.
+    If it was not, this says nothing at all: Sphinx DROPS html_static_path
+    entries that do not exist when it reads the configuration, and artesian
+    creates the directory afterwards, at ``builder-inited``. So on a first
+    build a correctly configured project looks misconfigured, and warning
+    would send someone to add an entry they have already added. It is only
+    once the directory exists that its absence from the list means anything.
     """
+    if not existed:
+        return
     static = getattr(config, "html_static_path", None) or []
     try:
         relative = os.path.relpath(outdir, confdir)
@@ -111,6 +121,8 @@ def build_apps(app, config=None):
 
         src = _resolve(confdir, opts["app"])
         outdir = _resolve(confdir, opts["outdir"])
+        # Recorded before build_app creates it; see _warn_if_not_published.
+        outdir_existed = os.path.isdir(outdir)
         logger.info("artesian: building %s -> %s", os.path.basename(src),
                     os.path.relpath(outdir, confdir))
         html = build_app(
@@ -122,7 +134,7 @@ def build_apps(app, config=None):
             index=opts["index"],
             strip_wheels=opts["strip_wheels"],
         )
-        _warn_if_not_published(config, confdir, outdir)
+        _warn_if_not_published(config, confdir, outdir, outdir_existed)
         logger.info("artesian: built %s", os.path.relpath(html, confdir))
         # Same reasoning as the command line: a docs build should say what it
         # is asking a reader to download.
