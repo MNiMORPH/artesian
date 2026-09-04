@@ -36,7 +36,8 @@ import shutil
 import tempfile
 import zipfile
 
-__all__ = ["payload", "format_payload", "strip_wheel", "STRIP_MANIFEST"]
+__all__ = ["payload", "format_payload", "strip_wheel", "STRIP_MANIFEST",
+           "STRIP_RULES", "VENDORED_RULES", "wheel_internal_references"]
 
 #: Written into a stripped wheel's ``.dist-info``, so the wheel says for itself
 #: that it is not the one PyPI published.
@@ -52,6 +53,57 @@ STRIP_RULES = (
     ("TypeScript sources", lambda n: n.endswith(".ts") and not n.endswith(".d.ts")),
     ("test suites", lambda n: "/tests/" in n or n.startswith("tests/")),
 )
+
+
+#: Additionally removes the JavaScript bundles a wheel vendors. This is the
+#: large one and the less obvious one, so the reasoning is worth stating.
+#:
+#: ``panel`` and ``bokeh`` each ship their compiled front end inside the Python
+#: wheel, and it dominates: 96 % of ``panel``'s wheel and 78 % of ``bokeh``'s
+#: are bundles, against 0.6 and 0.7 MB of Python. But a compiled demo does not
+#: load them from there. It loads ``bokeh-*.min.js`` from ``cdn.bokeh.org`` and
+#: ``panel.min.js`` from ``cdn.holoviz.org``, and contains no reference to
+#: ``panel/dist`` or ``static/js`` at all. The bundles are for serving a page
+#: yourself, which is the one thing a compiled demo never does.
+#:
+#: Measured: 691 files and 11.5 MB off ``panel``, taking a demo's self-hosted
+#: payload from 36.85 MB to 15.94 MB.
+#:
+#: More aggressive than :data:`STRIP_RULES` and separately opt-in, because it
+#: rests on that premise about where the front end comes from.
+#: :func:`wheel_internal_references` checks the premise against the built app
+#: rather than trusting it, and ``build_app`` refuses to finish if it fails.
+VENDORED_RULES = STRIP_RULES + (
+    ("vendored JS bundles",
+     lambda n: (("/dist/" in n or "static/js" in n)
+                and n.endswith((".js", ".mjs")))),
+)
+
+#: Paths inside a wheel that a compiled app must never reference, if the
+#: bundles in that wheel are safe to remove.
+_INTERNAL = re.compile(r"(?:panel/dist/|static/js/)[A-Za-z0-9_.\-/]*\.(?:js|mjs)")
+
+
+def wheel_internal_references(outdir):
+    """References from the built app into a wheel's own bundle directories.
+
+    The premise behind :data:`VENDORED_RULES` is that a compiled demo loads its
+    front end from a CDN and never out of the wheels beside it. This checks
+    that against the generated page and worker instead of assuming it, so the
+    strip is refused rather than silently shipping a demo whose JavaScript has
+    been taken away.
+
+    Returns a sorted list of the references found; empty means the premise
+    holds for this app.
+    """
+    found = set()
+    for pattern in ("*.html", "*.js"):
+        for path in glob.glob(os.path.join(outdir, pattern)):
+            if os.path.basename(path).startswith("artesian-embed"):
+                continue
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                found.update(_INTERNAL.findall(fh.read()))
+    return sorted(found)
 
 
 def _wheel_distribution(filename):

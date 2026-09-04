@@ -38,6 +38,7 @@ def _cmd_build(args):
         index=args.index,
         design_width=args.design_width,
         strip_wheels=args.strip_wheels,
+        strip_vendored=args.strip_vendored,
     )
     print("built %s" % html)
     # Printed every time, not behind a flag. A reader's download was a surprise
@@ -113,6 +114,11 @@ def build_parser():
                           "suites from the self-hosted wheels (~9 MB off "
                           "panel); the wheels then differ from PyPI's and say "
                           "so in their own metadata")
+    bld.add_argument("--strip-vendored", action="store_true",
+                     help="also drop the JavaScript bundles the wheels vendor "
+                          "(a further ~11 MB off panel). A compiled demo loads "
+                          "its front end from a CDN, not from these; the build "
+                          "fails if this app turns out to need them")
     bld.add_argument("--index", action="store_true",
                      help="also emit index.html (for several apps in one dir)")
     bld.add_argument("--serve", action="store_true",

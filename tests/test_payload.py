@@ -138,3 +138,51 @@ def test_pyodide_source_is_read_from_the_compiled_app(tmp_path):
 def test_pyodide_source_is_none_when_absent(tmp_path):
     (tmp_path / "demo.js").write_text("nothing here")
     assert pyodide_source(str(tmp_path)) is None
+
+
+# -- the vendored bundles, and the premise behind removing them -----------
+
+def test_vendored_rules_also_take_the_dist_bundles(tmp_path):
+    w = _wheel(tmp_path, "panel-1.0-py3-none-any.whl", {
+        "panel/dist/panel.min.js": "j" * 9000,
+        "panel/dist/theme.css": "c" * 100,
+        "panel/io/resources.py": "p" * 100,
+        "panel-1.0.dist-info/METADATA": "Name: panel",
+    })
+    from artesian.payload import VENDORED_RULES
+    strip_wheel(str(w), VENDORED_RULES)
+    members = _members(w)
+
+    assert "panel/dist/panel.min.js" not in members
+    assert "panel/dist/theme.css" in members, "CSS is not a bundle we serve"
+    assert "panel/io/resources.py" in members, "the package's Python must stay"
+
+
+def test_the_conservative_rules_leave_the_bundles_alone(tmp_path):
+    w = _wheel(tmp_path, "panel-1.0-py3-none-any.whl", {
+        "panel/dist/panel.min.js": "j" * 9000,
+        "panel-1.0.dist-info/METADATA": "Name: panel",
+    })
+    strip_wheel(str(w))                      # STRIP_RULES by default
+    assert "panel/dist/panel.min.js" in _members(w)
+
+
+def test_premise_holds_when_the_app_loads_its_front_end_from_a_cdn(tmp_path):
+    from artesian.payload import wheel_internal_references
+    (tmp_path / "demo.html").write_text(
+        '<script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.9.2.min.js">')
+    assert wheel_internal_references(str(tmp_path)) == []
+
+
+def test_premise_fails_when_the_app_reaches_into_a_wheel(tmp_path):
+    """If this fires, stripping the bundles would remove JavaScript the app
+    needs, and a demo that fails in a browser is worse than a large one."""
+    from artesian.payload import wheel_internal_references
+    (tmp_path / "demo.js").write_text('load("panel/dist/panel.min.js")')
+    assert wheel_internal_references(str(tmp_path)) == ["panel/dist/panel.min.js"]
+
+
+def test_the_embed_script_is_not_mistaken_for_the_app(tmp_path):
+    from artesian.payload import wheel_internal_references
+    (tmp_path / "artesian-embed.js").write_text('"static/js/whatever.js"')
+    assert wheel_internal_references(str(tmp_path)) == []

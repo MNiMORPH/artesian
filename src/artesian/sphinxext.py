@@ -48,6 +48,7 @@ _APP_KEYS = {
     "mode": "pyodide-worker",
     "index": False,
     "strip_wheels": False,
+    "strip_vendored": False,
 }
 
 
@@ -133,6 +134,7 @@ def build_apps(app, config=None):
             mode=opts["mode"],
             index=opts["index"],
             strip_wheels=opts["strip_wheels"],
+            strip_vendored=opts["strip_vendored"],
         )
         _warn_if_not_published(config, confdir, outdir, outdir_existed)
         logger.info("artesian: built %s", os.path.relpath(html, confdir))

@@ -275,3 +275,35 @@ def test_warns_about_a_stale_neighbour(tmp_path, monkeypatch):
 
     with pytest.warns(UserWarning, match="grlp_panel.html"):
         build_app(str(app), str(out), self_host=())
+
+
+def test_strip_vendored_refuses_when_the_app_needs_those_bundles(tmp_path,
+                                                                 monkeypatch):
+    """Better to fail the build than ship a demo whose JavaScript was removed."""
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+    out = tmp_path / "out"
+
+    def fake_run(cmd, cwd=None):
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            (out / "a.html").write_text('src="panel/dist/panel.min.js"')
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="removed JavaScript it needs"):
+        build_app(str(app), str(out), self_host=(), strip_vendored=True)
+
+
+def test_strip_vendored_is_content_when_the_front_end_is_on_a_cdn(tmp_path,
+                                                                 monkeypatch):
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\n")
+    out = tmp_path / "out"
+
+    def fake_run(cmd, cwd=None):
+        if "convert" in cmd:
+            os.makedirs(out, exist_ok=True)
+            (out / "a.html").write_text('src="https://cdn.bokeh.org/x.min.js"')
+    monkeypatch.setattr(build_mod, "_run", fake_run)
+
+    build_app(str(app), str(out), self_host=(), strip_vendored=True)

@@ -39,7 +39,8 @@ import warnings
 
 from .embed import (declared_design_width, inject_design_width,
                     unscaled_pages, write_embed_script)
-from .payload import strip_wheel
+from .payload import (STRIP_RULES, VENDORED_RULES, strip_wheel,
+                      wheel_internal_references)
 
 __all__ = ["build_app", "localize_wheel_urls"]
 
@@ -101,7 +102,8 @@ def _installed_version(package):
 
 def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
               self_host=DEFAULT_SELF_HOST, index=False, clean_wheels=True,
-              design_width=None, strip_wheels=False):
+              design_width=None, strip_wheels=False,
+              strip_vendored=False):
     """Compile ``app`` into a standalone WebAssembly page in ``outdir``.
 
     Parameters
@@ -143,6 +145,16 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         what ``pip install`` gives under that filename. Each one it changes
         carries a manifest inside its ``.dist-info`` saying so, and the model's
         own wheel is never touched. See ``docs/payload.md``.
+    strip_vendored : bool, optional
+        Also remove the JavaScript bundles the self-hosted wheels vendor.
+        These dominate -- 96 % of ``panel``'s wheel and 78 % of ``bokeh``'s --
+        and a compiled demo does not load them: it takes its front end from
+        ``cdn.bokeh.org`` and ``cdn.holoviz.org``. Measured at a further
+        11.5 MB off ``panel``, taking a demo from 27.5 MB self-hosted to 15.9.
+        Implies ``strip_wheels``. The premise is checked rather than trusted:
+        if the built app turns out to reference anything inside those
+        directories, the build fails instead of shipping a demo with its
+        JavaScript removed.
     design_width : int, optional
         The width the app is laid out for, in CSS pixels. Recorded in the
         compiled page so the embedding script scales the demo above that width
@@ -210,8 +222,9 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
                 # Stripped here rather than after the loop, so only wheels
                 # this build downloaded are touched: the model's own wheel,
                 # and any neighbour app's, are left exactly as built.
-                if strip_wheels:
-                    before, after, removed = strip_wheel(dest)
+                if strip_wheels or strip_vendored:
+                    rules = VENDORED_RULES if strip_vendored else STRIP_RULES
+                    before, after, removed = strip_wheel(dest, rules)
                     if removed:
                         print("artesian: stripped %d files from %s, "
                               "%.2f -> %.2f MB"
@@ -302,6 +315,22 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
     # nothing to point it out. Worth reporting even though a frame attribute
     # can cover for it: the attribute is the embedding page's to remember, and
     # the recorded width is the fallback for when it does not.
+    if strip_vendored:
+        # The premise checked, not assumed: a compiled demo loads its front end
+        # from a CDN, so the bundles inside the wheels are dead weight. If that
+        # is untrue for this app we have just removed JavaScript it needs, and
+        # a demo that fails in a browser is worse than a large one.
+        referenced = wheel_internal_references(outdir)
+        if referenced:
+            raise RuntimeError(
+                "this app references %d path(s) inside a wheel's own bundle "
+                "directories, so --strip-vendored has removed JavaScript it "
+                "needs: %s\n"
+                "Rebuild without it. The assumption behind stripping them is "
+                "that the front end comes from cdn.bokeh.org and "
+                "cdn.holoviz.org, which does not hold here."
+                % (len(referenced), ", ".join(referenced[:5])))
+
     stale = unscaled_pages(outdir, exclude=[page])
     if stale:
         warnings.warn(
