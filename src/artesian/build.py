@@ -39,6 +39,7 @@ import warnings
 
 from .embed import (declared_design_width, inject_design_width,
                     unscaled_pages, write_embed_script)
+from .payload import strip_wheel
 
 __all__ = ["build_app", "localize_wheel_urls"]
 
@@ -100,7 +101,7 @@ def _installed_version(package):
 
 def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
               self_host=DEFAULT_SELF_HOST, index=False, clean_wheels=True,
-              design_width=None):
+              design_width=None, strip_wheels=False):
     """Compile ``app`` into a standalone WebAssembly page in ``outdir``.
 
     Parameters
@@ -133,6 +134,15 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         belonging to other apps sharing the directory are never touched: that
         sharing is what keeps a multi-demo site to one 35 MB copy of panel and
         bokeh instead of one per demo.
+    strip_wheels : bool, optional
+        Remove files no browser executes -- source maps, TypeScript sources,
+        a package's own test suite -- from the *self-hosted* wheels. Measured
+        at 9.4 MB on ``panel``'s 30.3 MB wheel, which is 31 % of it and 18 %
+        of a whole demo's download; ``bokeh`` has nothing to remove and is
+        left byte-identical. Off by default, because a stripped wheel is not
+        what ``pip install`` gives under that filename. Each one it changes
+        carries a manifest inside its ``.dist-info`` saying so, and the model's
+        own wheel is never touched. See ``docs/payload.md``.
     design_width : int, optional
         The width the app is laid out for, in CSS pixels. Recorded in the
         compiled page so the embedding script scales the demo above that width
@@ -197,6 +207,15 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
                 if os.path.exists(dest):
                     os.remove(dest)
                 shutil.move(src, dest)
+                # Stripped here rather than after the loop, so only wheels
+                # this build downloaded are touched: the model's own wheel,
+                # and any neighbour app's, are left exactly as built.
+                if strip_wheels:
+                    before, after, removed = strip_wheel(dest)
+                    if removed:
+                        print("artesian: stripped %d files from %s, "
+                              "%.2f -> %.2f MB"
+                              % (removed, basename, before / 1e6, after / 1e6))
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
 

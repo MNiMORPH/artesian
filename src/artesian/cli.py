@@ -18,6 +18,7 @@ import sys
 from ._version import __version__
 from .build import DEFAULT_SELF_HOST, MODES, build_app
 from .check import MISSING, check_requirements, format_report
+from .payload import format_payload, payload
 
 
 def _cmd_check(args):
@@ -36,8 +37,12 @@ def _cmd_build(args):
         self_host=args.self_host,
         index=args.index,
         design_width=args.design_width,
+        strip_wheels=args.strip_wheels,
     )
     print("built %s" % html)
+    # Printed every time, not behind a flag. A reader's download was a surprise
+    # precisely because nothing ever said what it was.
+    print(format_payload(payload(args.outdir, args.app), args.outdir))
     if not args.serve:
         return 0
 
@@ -103,6 +108,11 @@ def build_parser():
                           "embedding page scales the demo above it rather "
                           "than stretching it. Defaults to a DESIGN_WIDTH "
                           "declared in the app.")
+    bld.add_argument("--strip-wheels", action="store_true",
+                     help="drop source maps, TypeScript sources and test "
+                          "suites from the self-hosted wheels (~9 MB off "
+                          "panel); the wheels then differ from PyPI's and say "
+                          "so in their own metadata")
     bld.add_argument("--index", action="store_true",
                      help="also emit index.html (for several apps in one dir)")
     bld.add_argument("--serve", action="store_true",
