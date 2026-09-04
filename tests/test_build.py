@@ -196,7 +196,7 @@ def test_warns_when_the_app_declares_no_design_width(tmp_path, monkeypatch):
     out = tmp_path / "out"
     _fake_build(monkeypatch, str(out), {})
 
-    with pytest.warns(UserWarning, match="never scaled"):
+    with pytest.warns(UserWarning, match="records none"):
         build_app(str(app), str(out), self_host=())
 
 

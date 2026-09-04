@@ -231,26 +231,34 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
         inject_design_width(page, width)
     else:
         # Worth saying out loud, because nothing about the result looks wrong.
-        # The demo builds, loads, and fits its frame; it simply never scales,
-        # so its text and controls keep their size while the plot grows and on
-        # a wide screen they end up small beside it.
+        # The demo builds, loads and fits its frame; it simply does not scale,
+        # so its text and controls keep their size while the plot grows.
+        #
+        # Stated as a condition, not a verdict: the embedding frame's
+        # data-design-width takes precedence over the compiled page anyway, and
+        # is the more reliable of the two -- see the note in embed.py on WebKit
+        # and blank iframe documents. A page that sets it is fine regardless of
+        # what this build recorded.
         warnings.warn(
-            "%s declares no DESIGN_WIDTH and none was given, so this demo will "
-            "be fitted to the page but never scaled: its text and controls "
-            "keep their size while the plot grows. Add `DESIGN_WIDTH = <px>` "
-            "at module level in the app, or pass design_width=."
-            % os.path.basename(app), stacklevel=2)
+            "%s declares no DESIGN_WIDTH and none was given, so the compiled "
+            "page records none. Unless the embedding frame carries "
+            "data-design-width, the demo is fitted to the page but never "
+            "scaled: its text and controls keep their size while the plot "
+            "grows. Add `DESIGN_WIDTH = <px>` at module level in the app, or "
+            "pass design_width=." % os.path.basename(app), stacklevel=2)
 
     # Demos share an output directory, so one built before artesian recorded
-    # the width -- or never rebuilt since -- sits there silently unscaled
-    # beside newer ones. Only rebuilding it fixes that, and nothing else will
-    # ever point it out.
+    # the width -- or never rebuilt since -- sits there beside newer ones with
+    # nothing to point it out. Worth reporting even though a frame attribute
+    # can cover for it: the attribute is the embedding page's to remember, and
+    # the recorded width is the fallback for when it does not.
     stale = unscaled_pages(outdir, exclude=[page])
     if stale:
         warnings.warn(
-            "%s in %s record no design width, so they are fitted but never "
-            "scaled. They predate this being recorded, or have not been "
-            "rebuilt since. Rebuild each one to bring it in line."
+            "%s in %s record no design width. They predate this being "
+            "recorded, or have not been rebuilt since; unless their embedding "
+            "frames carry data-design-width they are fitted but never scaled. "
+            "Rebuild each one to bring it in line."
             % (", ".join(stale), outdir), stacklevel=2)
     return page
 
