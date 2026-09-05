@@ -35,6 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+browser = ["pytest", "playwright"]
 docs = ["sphinx>=7"]
 
 [project.scripts]
@@ -51,6 +52,7 @@ version = { attr = "artesian._version.__version__" }
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
+  "browser: drives a built demo in a real browser; needs playwright and downloads the Pyodide runtime (deselect with '-m \"not browser\"')",
   "network: marks tests that reach PyPI or run a full pyodide build (deselect with '-m \"not network\"')",
 ]
 

@@ -75,6 +75,11 @@ All notable changes to this project are documented here, following
 - A build that would overwrite a stripped wheel with a larger one of the same
   name now says so, rather than silently undoing the saving.
 
+- A browser test (`pytest -m browser`, extra `artesian[browser]`): builds the
+  example, serves it, waits for the app to actually go live, and drives it.
+  Closes the gap that every serious bug so far lived in the browser, where the
+  rest of the suite cannot see it.
+
 ### Notes
 
 - Extracted from the build hook in [GRLP](https://github.com/MNiMORPH/GRLP)'s

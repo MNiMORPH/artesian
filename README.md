@@ -327,6 +327,27 @@ See [`docs/payload.md`](docs/payload.md) for the measurements, and for the
 larger question this does not answer: `panel` is 58% of the payload, and these
 demos use a vanishing fraction of it.
 
+### Checking a demo in a browser
+
+The rest of the suite tests the build. It cannot see the thing the build
+produces, and that is where the hard bugs have been: a `panel convert` that
+exited zero while shipping a stale app, `width: 100%` sending a demo off the
+side of an iPad, a periodic callback that disconnected the controls, wheels
+stripped on the premise that their JavaScript is never loaded.
+
+```sh
+pip install "artesian[browser]" && playwright install chromium
+pytest -m browser
+```
+
+It compiles the example, serves it, waits for panel to clear `pn-loading` –
+*not* for the widgets to appear, since `panel convert` embeds a pre-rendered
+copy of the layout that shows up in 0.1 s whether or not anything is running –
+then presses Run and checks the plot actually changed, with no console errors.
+
+Roughly 30 s, and it downloads the Pyodide runtime, so it suits a schedule
+rather than every push.
+
 ## Known limitations
 
 - **The Pyodide runtime still comes from a CDN.** The wheels are self-hosted,
