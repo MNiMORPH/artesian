@@ -392,3 +392,71 @@ def test_no_re_inflation_warning_when_the_build_strips(tmp_path, monkeypatch):
         warnings.simplefilter("error")
         build_app(str(app), str(out), self_host=("panel",),
                   strip_vendored=True)
+
+
+# ------------------------------------------------- imports nothing provides
+#
+# The regression these exist for. A corestone demo was rebuilt without
+# artesian among its -p packages, although the app imports artesian.live. The
+# build succeeded, printed its payload summary and wrote a page that loads;
+# Pyodide raised ModuleNotFoundError inside its web worker, where the
+# traceback never reaches the page console, and the demo never started. The
+# broken build was deployed and sat there for a fortnight.
+
+def test_app_imports_reads_the_source_without_running_it(tmp_path):
+    """Importing a Panel application RUNS it, so the scan is an ast parse.
+    Submodules collapse to the top-level name, which is what a browser has to
+    resolve, and relative imports are not distributions at all."""
+    from artesian.build import app_imports
+    app = tmp_path / "a.py"
+    app.write_text("import numpy as np\n"
+                   "from artesian.live import animator\n"
+                   "from . import sibling\n"
+                   "import os.path\n"
+                   "def later():\n"
+                   "    import scipy.sparse\n")
+    assert app_imports(str(app)) == {"numpy", "artesian", "os", "scipy"}
+
+
+def test_unresolved_imports_names_what_is_missing_and_only_that(tmp_path):
+    """One-directional: it may name something that resolves anyway, and it
+    must not stay silent about one that will not."""
+    from artesian.build import unresolved_imports
+    app = tmp_path / "a.py"
+    app.write_text("import panel, numpy\nfrom artesian.live import animator\n"
+                   "from mymodel import Thing\nimport json\n")
+    # panel is shipped by `panel convert` itself; json is stdlib; numpy is
+    # named; mymodel arrives as a wheel. Only artesian is unaccounted for.
+    assert unresolved_imports(
+        str(app), ["mymodel-0.1.0-py3-none-any.whl", "numpy"]) == ["artesian"]
+
+    # ...and naming it silences the check.
+    assert unresolved_imports(
+        str(app), ["mymodel-0.1.0-py3-none-any.whl", "numpy",
+                   "artesian-0.1.0.dev0-py3-none-any.whl"]) == []
+
+
+def test_the_build_warns_when_the_app_imports_something_unshipped(
+        tmp_path, monkeypatch):
+    """The whole point: it has to fire during a real build, not only when
+    called directly."""
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\nimport panel\nimport artesian\n")
+    out = tmp_path / "out"
+    _fake_build(monkeypatch, str(out), {})
+
+    with pytest.warns(UserWarning, match="artesian"):
+        build_app(str(app), str(out), self_host=())
+
+
+def test_the_build_is_quiet_once_the_missing_package_is_shipped(
+        tmp_path, monkeypatch):
+    app = tmp_path / "a.py"
+    app.write_text("DESIGN_WIDTH = 900\nimport panel\nimport artesian\n")
+    out = tmp_path / "out"
+    _fake_build(monkeypatch, str(out), {})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_app(str(app), str(out), self_host=(),
+                  requirements=["artesian"])

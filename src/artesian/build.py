@@ -36,6 +36,11 @@ import subprocess
 import sys
 import tempfile
 import warnings
+import ast
+import importlib.util
+import io
+import re
+import sysconfig
 
 from .embed import (declared_design_width, inject_design_width,
                     unscaled_pages, write_embed_script)
@@ -52,6 +57,14 @@ MODES = ("pyodide-worker", "pyodide")
 #: Packages whose wheels are downloaded and served alongside the app rather
 #: than pulled from a CDN at run time.
 DEFAULT_SELF_HOST = ("panel", "bokeh")
+
+#: What ``panel convert`` puts in every compiled page's install list without
+#: being asked, because the page cannot run without it. These are NOT in the
+#: requirements artesian assembles, so :func:`unresolved_imports` has to be
+#: told about them or it reports every Panel app as missing panel. Verified
+#: against a built page: the list begins bokeh, panel, pyodide-http and the
+#: requirements passed with --requirements follow.
+ALWAYS_PROVIDED = ("panel", "bokeh", "pyodide_http")
 
 
 def _run(cmd, cwd=None):
@@ -98,6 +111,104 @@ def _installed_version(package):
         return version(package)
     except Exception:
         return None
+
+
+def _is_stdlib(name):
+    """Is ``name`` a standard-library top-level module in this interpreter?
+
+    ``sys.stdlib_module_names`` is 3.10 and later; this package supports 3.9,
+    so there is a fallback that asks where the module actually lives.
+    """
+    names = getattr(sys, "stdlib_module_names", None)
+    if names is not None:
+        return name in names
+    if name in sys.builtin_module_names:
+        return True
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return False
+    origin = getattr(spec, "origin", None) if spec else None
+    if not origin or origin == "built-in":
+        return bool(spec)
+    stdlib = sysconfig.get_paths().get("stdlib")
+    return bool(stdlib) and os.path.abspath(origin).startswith(
+        os.path.abspath(stdlib) + os.sep) and "site-packages" not in origin
+
+
+def app_imports(app):
+    """Top-level module names ``app`` imports, from its source.
+
+    Parsed rather than executed: importing a Panel application runs it.
+    ``import a.b`` and ``from a.b import c`` both yield ``a``, because that is
+    the name a browser has to be able to resolve. Imports inside functions
+    count too -- they still run in the reader's browser.
+    """
+    try:
+        tree = ast.parse(io.open(app, encoding="utf-8").read())
+    except (OSError, SyntaxError):
+        # `panel convert` is about to report this far more usefully.
+        return set()
+    found = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                found.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:            # a relative import: not a distribution
+                continue
+            if node.module:
+                found.add(node.module.split(".")[0])
+    return found
+
+
+def _provided_names(reqs):
+    """Import names the browser will plausibly be able to resolve.
+
+    A requirement is either a wheel filename, whose distribution name is the
+    part before the first hyphen, or a bare requirement string. Distribution
+    names and import names are NOT the same thing -- ``scikit-learn`` imports
+    as ``sklearn`` -- so this is a heuristic, and its consumer only warns.
+    """
+    names = set()
+    for req in reqs:
+        base = os.path.basename(str(req))
+        if base.endswith(".whl"):
+            base = base.split("-")[0]
+        else:
+            base = re.split(r"[<>=!~\[; ]", base)[0]
+        base = base.strip()
+        if base:
+            names.add(base.lower().replace("-", "_"))
+    return names
+
+
+def unresolved_imports(app, reqs):
+    """Modules ``app`` imports that nothing in ``reqs`` appears to provide.
+
+    THE FAILURE THIS EXISTS FOR, and it has happened. An app that imports
+    ``artesian.live`` was built without artesian among its ``-p`` packages.
+    The build SUCCEEDED, printed its payload summary and wrote a page that
+    loads; Pyodide then raised ``ModuleNotFoundError`` inside a web worker,
+    where the traceback never reaches the page console, and the demo simply
+    never started. Nothing anywhere said a word, and the demo shipped.
+
+    Heuristic in one direction only: it can name something that will in fact
+    resolve -- a transitive dependency such as ``param``, which micropip
+    installs because panel requires it, or a distribution whose import name
+    differs from its own. It will not miss a module that is genuinely absent
+    unless the import is built at runtime. So its consumer warns and does not
+    raise.
+    """
+    provided = _provided_names(reqs) | set(ALWAYS_PROVIDED)
+    missing = set()
+    for name in app_imports(app):
+        if _is_stdlib(name):
+            continue
+        if name.lower().replace("-", "_") in provided:
+            continue
+        missing.add(name)
+    return sorted(missing)
 
 
 def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
@@ -347,6 +458,30 @@ def build_app(app, outdir, packages=(), requirements=(), mode="pyodide-worker",
                 "that the front end comes from cdn.bokeh.org and "
                 "cdn.holoviz.org, which does not hold here."
                 % (len(referenced), ", ".join(referenced[:5])))
+
+    # Checked at the END, where it is read. A warning emitted before the
+    # conversion is buried under `panel convert`'s output and the payload
+    # summary, and the whole point of this one is that the failure it
+    # describes is otherwise invisible until a reader opens the page.
+    missing = unresolved_imports(app, reqs)
+    if missing:
+        warnings.warn(
+            "%s imports %s, and nothing shipped with this build appears to "
+            "provide %s. If that is right, the page will load, Pyodide will "
+            "raise ModuleNotFoundError inside its web worker where the "
+            "traceback never reaches the page console, and the demo will "
+            "never start -- which is exactly how a broken build ships "
+            "unnoticed. Add the missing source tree with another -p, or name "
+            "it with -r if it is on PyPI or bundled by Pyodide.\n"
+            "This check is one-directional and can be wrong the harmless "
+            "way: a transitive dependency micropip installs anyway (param, "
+            "say, which panel requires), or a distribution whose import name "
+            "differs from its own. Verify with:\n"
+            "    grep -o \"micropip.install(\\[[^]]*\\])\" %s"
+            % (os.path.basename(app), ", ".join(missing),
+               "it" if len(missing) == 1 else "them",
+               os.path.basename(os.path.splitext(page)[0] + ".js")),
+            stacklevel=2)
 
     stale = unscaled_pages(outdir, exclude=[page])
     if stale:
